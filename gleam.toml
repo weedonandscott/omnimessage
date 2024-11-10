@@ -1,12 +1,12 @@
 name = "lustre_omnistate"
-version = "0.0.2"
+version = "0.0.3"
 target = "javascript"
 
 description = "Use Remote State, Locally"
 repository = { type = "github", user = "weedonandscott", repo = "lustre_omnistate" }
 licences = ["MIT"]
 
-internal_modules = ["lustre_omnistate/internal", "lustre_omnistate/internal/*"]
+internal_modules = ["internal", "internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
