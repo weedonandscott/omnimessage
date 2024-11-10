@@ -40,3 +40,7 @@ lustre.application(omniinit, omniupdate, view)
 
 Further documentation can be found at <https://hexdocs.pm/lustre_omnistate>.
 
+## Thanks & Acknowledgements
+
+- [kero/lustre_websocket](https://codeberg.org/kero/lustre_websocket)
+
