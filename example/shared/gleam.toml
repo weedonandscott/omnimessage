@@ -16,6 +16,7 @@ version = "0.0.1"
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
 gleam_json = ">= 1.0.1 and < 2.0.0"
 decode = ">= 0.4.1 and < 1.0.0"
+lustre_omnistate = { path = "../../../lustre_omnistate" }
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

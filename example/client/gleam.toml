@@ -13,7 +13,7 @@ gleam_json = ">= 1.0.1 and < 2.0.0"
 plinth = ">= 0.4.15 and < 1.0.0"
 gleam_javascript = ">= 0.13.0 and < 1.0.0"
 birl = ">= 1.7.1 and < 2.0.0"
-lustre_pipes = { path = "../../../lustre_pipes" }
+lustre_pipes = ">= 0.0.1 and < 1.0.0"
 lustre_omnistate = { path = "../../../lustre_omnistate" }
 shared = { path = "../shared" }
 decode = ">= 0.4.1 and < 1.0.0"

@@ -1,72 +1,73 @@
 import birl
 import gleam/dict
-import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option}
+import gleam/result
 import gleam/string
 import gluid
-import lustre
 import lustre/effect
-import lustre_omnistate as lo
+import lustre_omnistate
+import lustre_omnistate/omniclient
+import lustre_omnistate/omniclient/transports
 import lustre_pipes/attribute
 import lustre_pipes/element
 import lustre_pipes/element/html
 import lustre_pipes/event
-import lustre_websocket as ws
-import transports
 
-import shared.{
-  type Message, type OmniState, type SharedMessage, Message, OmniState,
-}
+import shared.{type ClientMessage, type Message, type ServerMessage, Message}
 
 // MAIN ------------------------------------------------------------------------
 
 pub fn chat() {
   let encoder_decoder =
-    lo.EncoderDecoder(
+    lustre_omnistate.EncoderDecoder(
       fn(msg) {
         case msg {
-          // We're only interested in sending `SharedMessage`
-          SharedMessage(message) -> Ok(shared.encode_shared_message(message))
+          // Messages must be encodable
+          ClientMessage(message) -> Ok(shared.encode_client_message(message))
+          // Return Error(Nil) for messages you don't want to send out
           _ -> Error(Nil)
         }
       },
-      shared.decode_omnistate,
+      fn(encoded_msg) {
+        // Unsupported messages will cause TransportError(DecodeError(error)) 
+        shared.decode_server_message(encoded_msg)
+        |> result.map(ServerMessage)
+      },
     )
 
-  let #(omniinit, omniupdate) =
-    lo.setup(
-      init,
-      update,
-      transports.websocket("http://localhost:8000/ws"),
-      OmniMessage,
-      encoder_decoder,
-    )
-
-  lustre.component(omniinit, omniupdate, view, dict.new())
+  omniclient.component(
+    init,
+    update,
+    view,
+    dict.new(),
+    encoder_decoder,
+    // transports.websocket("http://localhost:8000/omni-app-ws"),
+    // transports.websocket("http://localhost:8000/omni-pipe-ws"),
+    transports.http("http://localhost:8000/omni-http", option.None, dict.new()),
+    TransportState,
+  )
 }
 
 // MODEL -----------------------------------------------------------------------
 
 pub type Model {
-  Model(omnistate: OmniState, draft_message_content: String)
+  Model(messages: dict.Dict(String, Message), draft_message_content: String)
 }
 
 fn init(_initial_model: Option(Model)) -> #(Model, effect.Effect(Msg)) {
-  #(
-    Model(shared.OmniState(dict.new()), draft_message_content: ""),
-    effect.none(),
-  )
+  #(Model(dict.new(), draft_message_content: ""), effect.none())
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 pub type Msg {
   UserSendDraft
-  SharedMessage(SharedMessage)
+  ClientMessage(ClientMessage)
+  ServerMessage(ServerMessage)
   UserUpdateDraftMessageContent(content: String)
-  OmniMessage(lo.OmniMessage(OmniState, json.DecodeError))
+  TransportState(transports.TransportState(json.DecodeError))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
@@ -84,7 +85,7 @@ fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       #(
         Model(..model, draft_message_content: ""),
         effect.from(fn(dispatch) {
-          dispatch(SharedMessage(shared.UserSendMessage(message)))
+          dispatch(ClientMessage(shared.UserSendMessage(message)))
         }),
       )
     }
@@ -92,46 +93,43 @@ fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       Model(..model, draft_message_content: content),
       effect.none(),
     )
-    // Omnistate
     // Shared messages
-    SharedMessage(shared.UserSendMessage(message)) -> {
+    ClientMessage(shared.UserSendMessage(message)) -> {
       let message = Message(..message, status: shared.Sending)
 
-      let omnistate =
-        model.omnistate.messages
+      let messages =
+        model.messages
         |> dict.insert(message.id, message)
-        |> OmniState
 
-      #(Model(..model, omnistate:), effect.none())
+      #(Model(..model, messages:), effect.none())
     }
-    SharedMessage(_) -> {
+    // The rest of the ClientMessages are exlusively handled by the server
+    ClientMessage(_) -> {
       #(model, effect.none())
     }
     // Merge strategy
-    OmniMessage(lo.OmnistateReceived(Ok(server_omnistate))) -> {
-      let omnistate =
-        model.omnistate.messages
+    ServerMessage(shared.ServerUpsertMessages(server_messages)) -> {
+      let messages =
+        model.messages
         // Omnistate shines when you're OK with server being source of truth
-        |> dict.merge(server_omnistate.messages)
-        |> OmniState
+        |> dict.merge(server_messages)
 
-      #(Model(..model, omnistate:), effect.none())
+      #(Model(..model, messages:), effect.none())
     }
-    // State handlers
-    OmniMessage(lo.OmnistateReceived(Error(err))) -> {
-      // If we're here, the server probably sent bad data
-      io.debug(err)
-      #(model, effect.none())
+    // State handlers - use for initialization, debug, online/offline indicator
+    TransportState(transports.TransportUp) -> {
+      #(
+        model,
+        effect.from(fn(dispatch) {
+          dispatch(ClientMessage(shared.FetchMessages))
+        }),
+      )
     }
-    OmniMessage(lo.TransportDown(_, _)) -> {
+    TransportState(transports.TransportDown(_, _)) -> {
       // Use this for debugging, online/offline indicator
       #(model, effect.none())
     }
-    OmniMessage(lo.TransportUp) -> {
-      // Use this for debugging, online/offline indicator
-      #(model, effect.none())
-    }
-    OmniMessage(lo.TransportInitError(_)) -> {
+    TransportState(transports.TransportError(_)) -> {
       // Use this for debugging, online/offline indicator
       #(model, effect.none())
     }
@@ -159,7 +157,7 @@ fn sort_messages(messages: List(Message)) {
 
 fn view(model: Model) -> element.Element(Msg) {
   let sorted_messages =
-    model.omnistate.messages
+    model.messages
     |> dict.values
     |> sort_messages
   html.div()

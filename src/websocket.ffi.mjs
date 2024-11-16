@@ -2,7 +2,7 @@ import { Ok, Error } from './gleam.mjs';
 import {
   InvalidUrl,
   UnsupportedEnvironment
-} from './internal/transports/websocket.mjs';
+} from './lustre_omnistate/internal/transports/websocket.mjs';
 
 export const ws_init = (url, on_open, on_text, on_close) => {
   if (typeof WebSocket === "function") {
