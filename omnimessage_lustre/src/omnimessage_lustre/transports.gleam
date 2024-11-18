@@ -1,4 +1,4 @@
-/// Transports tell an omniclient Lustre application how to communicate with
+/// Transports tell an omnimessage_lustre application how to communicate with
 /// the server.
 ///
 /// You hand them to `omnistate.application()` or `omnistate.component()`
@@ -15,13 +15,11 @@ import gleam/fetch
 import gleam/http
 import gleam/http/request
 import gleam/http/response
-import gleam/httpc
 import gleam/javascript/promise
 import gleam/option
 import gleam/result
 
-import lustre_omnistate
-import lustre_omnistate/internal/transports/websocket
+import omnimessage_lustre/internal/transports/websocket
 
 /// This type represents the state messages sent to your Lustre application via
 /// the wrapper you gave on application creation.
@@ -83,13 +81,13 @@ pub fn websocket(path: String) -> Transport(String, decode_error) {
             },
           )
         },
-        send: fn(msg, handlers) { websocket.send(ws, msg) },
+        send: fn(msg, _handlers) { websocket.send(ws, msg) },
       )
     }
     Error(error) ->
       Transport(
         listen: fn(handlers) { handlers.on_error(InitError(error.message)) },
-        send: fn(_msg, handlers) { Nil },
+        send: fn(_msg, _handlers) { Nil },
       )
   }
 }
@@ -139,7 +137,7 @@ fn handle_http_response(
   }
 }
 
-@external(javascript, "../../lustre_omnistate.ffi.mjs", "on_online_change")
+@external(javascript, "../omnimessage_lustre.ffi.mjs", "on_online_change")
 fn on_online_change(callback: fn(Bool) -> Nil) -> Bool
 
 @target(javascript)
@@ -183,24 +181,23 @@ pub fn http(
     },
   )
 }
-
-@target(erlang)
-/// An http transport using text requests
-pub fn http(
-  path path: String,
-  method method: option.Option(http.Method),
-  headers headers: dict.Dict(String, String),
-) -> Transport(String, decode_error) {
-  Transport(
-    listen: fn(handlers) { handlers.on_up() },
-    send: fn(encoded_msg: String, handlers) {
-      let req = prepare_http_request(path:, method:, headers:, encoded_msg:)
-
-      httpc.send(req)
-      |> result.map_error(fn(_) { SendError("") })
-      |> handle_http_response(handlers)
-
-      Nil
-    },
-  )
-}
+// @target(erlang)
+// /// An http transport using text requests
+// pub fn http(
+//   path path: String,
+//   method method: option.Option(http.Method),
+//   headers headers: dict.Dict(String, String),
+// ) -> Transport(String, decode_error) {
+//   Transport(
+//     listen: fn(handlers) { handlers.on_up() },
+//     send: fn(encoded_msg: String, handlers) {
+//       let req = prepare_http_request(path:, method:, headers:, encoded_msg:)
+//
+//       httpc.send(req)
+//       |> result.map_error(fn(_) { SendError("") })
+//       |> handle_http_response(handlers)
+//
+//       Nil
+//     },
+//   )
+// }

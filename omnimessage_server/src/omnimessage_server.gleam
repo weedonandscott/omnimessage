@@ -1,11 +1,11 @@
-/// Omniserver is the collection of tools allowing you to handle connections
-/// from omniclient Lustre applications.
+/// omnimessage_server is the collection of tools allowing you to handle
+/// connections from omnimessage_lustre applications.
 ///
 /// The rule of thumb is if it initiates the connection, it's a client. If it
 /// responds to a connection request, it's a server. 
 ///
-/// While you could do this manually fairly simples, the omniserver tools can
-/// help you get started quicker and provide a nicer quality-of-life.
+/// While you could do this manually fairly simples, theese tools can help you
+/// get started quicker and provide a nicer quality-of-life.
 ///
 /// Do read the source of the functions to understand how to make your own
 /// customized solution.
@@ -13,7 +13,7 @@
 /// Currently only the erlang target is supported, but you could easily adapt
 /// the principles to the Node, Deno, or Bun targets. Or even to a runtime
 /// outside Gleam's ecosystem -- as long as you can send and receive encoded
-/// messages, you can communicate with an omniclient.
+/// messages, you can communicate with omnimessage_lustre.
 ///
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Decoder}
@@ -31,8 +31,64 @@ import lustre/element.{type Element}
 import mist
 import wisp
 
-import lustre_omnistate.{type EncoderDecoder}
-import lustre_omnistate/internal/lustre/runtime.{type Action}
+import omnimessage_server/internal/lustre/runtime.{type Action}
+
+/// Holds decode and encode functions for omnimessage messages. Decode errors
+/// will be called back for you to handle, while Encode errors are interpreted
+/// as "skip this message" -- no error will be raised for them and they won't
+/// be sent over.
+///
+/// Since an `EncoderDecoder` is expected to receive the whole message type of
+/// an application, but usually will ignore messages that aren't shared, it's
+/// best to define it as a thin wrapper around shared encoders/decoders:
+///
+/// ```gleam
+/// // Holds shared message types, encoders and decoders
+/// import shared
+///
+/// let encoder_decoder =
+///   EncoderDecoder(
+///     fn(msg) {
+///       case msg {
+///         // Messages must be encodable
+///         ClientMessage(message) -> Ok(shared.encode_client_message(message))
+///         // Return Error(Nil) for messages you don't want to send out
+///         _ -> Error(Nil)
+///       }
+///     },
+///     fn(encoded_msg) {
+///       // Unsupported messages will cause TransportError(DecodeError(error))
+///       shared.decode_server_message(encoded_msg)
+///       |> result.map(ServerMessage)
+///     },
+///   )
+/// ```
+///
+pub type EncoderDecoder(msg, encoding, decode_error) {
+  EncoderDecoder(
+    encode: fn(msg) -> Result(encoding, Nil),
+    decode: fn(encoding) -> Result(msg, decode_error),
+  )
+}
+
+/// A utility function for easily handling messages:
+///
+/// ```gleam
+/// let out_msg = pipe(in_msg, encoder_decoder, handler)
+/// ```
+///
+pub fn pipe(
+  msg: encoding,
+  encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
+  handler: fn(msg) -> msg,
+) -> Result(Option(encoding), decode_error) {
+  msg
+  |> encoder_decoder.decode
+  |> result.map(handler)
+  |> result.map(encoder_decoder.encode)
+  // Encoding error means "skip this message"
+  |> result.map(option.from_result)
+}
 
 ///
 pub opaque type App(flags, model, msg) {
@@ -61,7 +117,8 @@ pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
 }
 
 /// This creates a version of a Lustre application that can be used in
-/// `omniserver.start_actor` (see below)
+/// `omnimessage_server.start_actor` (see below). A view is not necessary, as
+/// this application will never render anything.
 ///
 pub fn application(init, update, encoder_decoder) {
   let view = fn(_) { element.none() }
@@ -82,12 +139,6 @@ pub fn start_actor(
   do_start_actor(app.app, flags)
 }
 
-@target(javascript)
-fn do_start_actor(_, _) {
-  Error(lustre.NotErlang)
-}
-
-@target(erlang)
 fn do_start_actor(
   app: App(flags, model, msg),
   flags: flags,
@@ -99,28 +150,24 @@ fn do_start_actor(
   |> result.map_error(lustre.ActorError)
 }
 
-@target(erlang)
 /// This action subscribes to updates in a running application.
 ///
 pub fn subscribe(id: String, dispatch: fn(msg) -> Nil) {
   runtime.UpdateSubscribe(id, dispatch)
 }
 
-@target(erlang)
 /// Dispatch a message to a running application's `update` function.
 ///
 pub fn dispatch(message: msg) {
   runtime.Dispatch(message)
 }
 
-@target(erlang)
 /// Instruct a running application to shut down.
 ///
 pub fn shutdown() {
   runtime.Shutdown
 }
 
-@target(erlang)
 /// A wisp middleware to automatically handle HTTP POST omnimessage messages.
 ///
 ///   - `req`              The wisp request
@@ -143,7 +190,7 @@ pub fn wisp_http_middleware(
 
       case
         req_body
-        |> lustre_omnistate.pipe(encoder_decoder, handler)
+        |> pipe(encoder_decoder, handler)
       {
         Ok(Some(res_body)) -> wisp.response(200) |> wisp.string_body(res_body)
         Ok(None) -> wisp.response(200)
@@ -154,7 +201,6 @@ pub fn wisp_http_middleware(
   }
 }
 
-@target(erlang)
 /// A mist websocket handler to automatically responsd to omnimessage messages.
 ///
 /// Return this as a response to the websocket init request.
@@ -168,7 +214,7 @@ pub fn wisp_http_middleware(
 ///
 pub fn mist_websocket_pipe(
   req: request.Request(mist.Connection),
-  encoder_decoder: lustre_omnistate.EncoderDecoder(msg, String, decode_error),
+  encoder_decoder: EncoderDecoder(msg, String, decode_error),
   handler: fn(msg) -> msg,
   on_error: fn(decode_error) -> Nil,
 ) {
@@ -178,7 +224,7 @@ pub fn mist_websocket_pipe(
     handler: fn(runtime, conn, msg) {
       case msg {
         mist.Text(msg) -> {
-          let _ = case lustre_omnistate.pipe(msg, encoder_decoder, handler) {
+          let _ = case pipe(msg, encoder_decoder, handler) {
             Ok(Some(encoded_msg)) -> mist.send_text_frame(conn, encoded_msg)
             Ok(None) -> Ok(Nil)
             Error(decode_error) -> Ok(on_error(decode_error))
@@ -197,16 +243,15 @@ pub fn mist_websocket_pipe(
   )
 }
 
-@target(erlang)
 /// A mist websocket handler to automatically responsd to omnimessage messages
 /// via a Lustre server component. The server component can then be used
-/// similarly to one created by an `omniclient` and handle the messages via the
-/// update look, dispatch, and effects.
+/// similarly to one created by an `omnimessage_lustre` and handle the messages
+/// via update, dispatch, and effects.
 ///
 /// Return this as a response to the websocket init request.
 ///
 ///   - `req`       The mist request
-///   - `app`       An application created with `omniserver.application`
+///   - `app`       An application created with `omnimessage_server.application`
 ///   - `flags`     Flags to hand to the application's `init`
 ///   - `on_error`  For handling decode errors
 ///
@@ -224,11 +269,9 @@ pub fn mist_websocket_application(
       let self = process.new_subject()
       let assert Ok(runtime) = start_actor(app, flags)
 
-      // TODO: initial response
-
       process.send(
         runtime,
-        subscribe("LUSTRE_OMNISTATE_AUTO_MIST", process.send(self, _)),
+        subscribe("OMNIMESSAGE_AUTO_MIST", process.send(self, _)),
       )
 
       #(

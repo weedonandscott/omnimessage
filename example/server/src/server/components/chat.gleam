@@ -1,15 +1,14 @@
 import gleam/dict
 import gleam/result
 import lustre/effect
-import lustre_omnistate
-import lustre_omnistate/omniserver
+import omnimessage_server as omniserver
 import shared.{type ClientMessage, type ServerMessage}
 
 import server/context.{type Context}
 
 pub fn app() {
   let encoder_decoder =
-    lustre_omnistate.EncoderDecoder(
+    omniserver.EncoderDecoder(
       fn(msg) {
         case msg {
           // Messages must be encodable
@@ -26,7 +25,7 @@ pub fn app() {
       },
     )
 
-  // An omniserver app has no view
+  // An omnimessage_server app has no view
   omniserver.application(init, update, encoder_decoder)
 }
 

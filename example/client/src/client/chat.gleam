@@ -7,13 +7,12 @@ import gleam/result
 import gleam/string
 import gluid
 import lustre/effect
-import lustre_omnistate
-import lustre_omnistate/omniclient
-import lustre_omnistate/omniclient/transports
 import lustre_pipes/attribute
 import lustre_pipes/element
 import lustre_pipes/element/html
 import lustre_pipes/event
+import omnimessage_lustre as omniclient
+import omnimessage_lustre/transports
 
 import shared.{type ClientMessage, type Message, type ServerMessage, Message}
 
@@ -21,7 +20,7 @@ import shared.{type ClientMessage, type Message, type ServerMessage, Message}
 
 pub fn chat() {
   let encoder_decoder =
-    lustre_omnistate.EncoderDecoder(
+    omniclient.EncoderDecoder(
       fn(msg) {
         case msg {
           // Messages must be encodable
@@ -43,9 +42,9 @@ pub fn chat() {
     view,
     dict.new(),
     encoder_decoder,
-    // transports.websocket("http://localhost:8000/omni-app-ws"),
+    transports.websocket("http://localhost:8000/omni-app-ws"),
     // transports.websocket("http://localhost:8000/omni-pipe-ws"),
-    transports.http("http://localhost:8000/omni-http", option.None, dict.new()),
+    // transports.http("http://localhost:8000/omni-http", option.None, dict.new()),
     TransportState,
   )
 }
@@ -111,7 +110,7 @@ fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
     ServerMessage(shared.ServerUpsertMessages(server_messages)) -> {
       let messages =
         model.messages
-        // Omnistate shines when you're OK with server being source of truth
+        // Omnimessage shines when you're OK with server being source of truth
         |> dict.merge(server_messages)
 
       #(Model(..model, messages:), effect.none())

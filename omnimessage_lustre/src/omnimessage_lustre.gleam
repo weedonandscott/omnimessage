@@ -1,24 +1,60 @@
-/// Omniclient is the collection of tools for creating Lustre applications
-/// that are able to automatically send messages to a server.
+/// omnimessage_lustre is the collection of tools for creating Lustre
+/// applications that are able to automatically send messages to a server.
 ///
 /// This allows you to seamlessly talk to a remote using normal Lustre
 /// messages, and handle replies as such.
 ///
-/// While most commonly this happens in a browser, omniclients can run on
+/// While most commonly this happens in a browser, omnimessage_lustre can run on
 /// erlang servers as well. The rule of thumb is if it initiates the connection,
 /// it's a client. If it responds to a connection request, it's a server. 
 ///
 import lustre
 import lustre/effect
 
-import lustre_omnistate
-import lustre_omnistate/omniclient/transports.{type TransportState}
+import omnimessage_lustre/transports.{type TransportState}
 
-/// Creates an omniclient Lustre application. The extra parameters are:
-///   - `encoder_decoder`    encodes and decodes messages, see definition in
-///                          `lustre_omnimessage`
+/// Holds decode and encode functions for omnimessage messages. Decode errors
+/// will be called back for you to handle, while Encode errors are interpreted
+/// as "skip this message" -- no error will be raised for them and they won't
+/// be sent over.
+///
+/// Since an `EncoderDecoder` is expected to receive the whole message type of
+/// an application, but usually will ignore messages that aren't shared, it's
+/// best to define it as a thin wrapper around shared encoders/decoders:
+///
+/// ```gleam
+/// // Holds shared message types, encoders and decoders
+/// import shared
+///
+/// let encoder_decoder =
+///   EncoderDecoder(
+///     fn(msg) {
+///       case msg {
+///         // Messages must be encodable
+///         ClientMessage(message) -> Ok(shared.encode_client_message(message))
+///         // Return Error(Nil) for messages you don't want to send out
+///         _ -> Error(Nil)
+///       }
+///     },
+///     fn(encoded_msg) {
+///       // Unsupported messages will cause TransportError(DecodeError(error))
+///       shared.decode_server_message(encoded_msg)
+///       |> result.map(ServerMessage)
+///     },
+///   )
+/// ```
+///
+pub type EncoderDecoder(msg, encoding, decode_error) {
+  EncoderDecoder(
+    encode: fn(msg) -> Result(encoding, Nil),
+    decode: fn(encoding) -> Result(msg, decode_error),
+  )
+}
+
+/// Creates an omnimessage_lustre application. The extra parameters are:
+///   - `encoder_decoder`    encodes and decodes messages
 ///   - `transport`          will transfer and recieve encoded messages. see
-///                          `omniclient/transports` for available ones
+///                          `omnimessage_lustre/transports` for available ones
 ///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
 ///
 pub fn application(
@@ -35,11 +71,10 @@ pub fn application(
   lustre.application(omniinit, omniupdate, view)
 }
 
-/// Creates an omniclient Lustre component. The extra parameters are:
-///   - `encoder_decoder`    encodes and decodes messages, see definition in
-///                          `lustre_omnimessage`
+/// Creates an omnimessage_lustre Lustre component. The extra parameters are:
+///   - `encoder_decoder`    encodes and decodes messages
 ///   - `transport`          will transfer and recieve encoded messages. see
-///                          `omniclient/transports` for available ones
+///                          `omnimessage_lustre/transports` for available ones
 ///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
 ///
 pub fn component(
@@ -107,7 +142,7 @@ type CodedTransport(msg, decode_error) {
 fn new_handlers(
   on_message,
   on_state,
-  encoder_decoder: lustre_omnistate.EncoderDecoder(msg, encoding, decode_error),
+  encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
 ) {
   transports.TransportHandlers(
     on_up: fn() { on_state(transports.TransportUp) },
@@ -132,7 +167,7 @@ fn new_handlers(
 
 fn to_coded_transport(
   base: transports.Transport(encoding, decode_error),
-  encoder_decoder: lustre_omnistate.EncoderDecoder(msg, encoding, decode_error),
+  encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
 ) -> CodedTransport(msg, decode_error) {
   CodedTransport(
     listen: fn(on_message, on_state) {

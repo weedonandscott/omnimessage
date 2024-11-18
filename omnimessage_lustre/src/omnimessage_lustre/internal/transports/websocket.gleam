@@ -40,7 +40,6 @@ pub type WebSocketCloseReason {
   OtherCloseReason(code: Int, reason: String)
 }
 
-@target(javascript)
 fn parse_reason(code: Int, reason: String) -> WebSocketCloseReason {
   case code {
     1000 -> Normal(code, reason)
@@ -74,7 +73,6 @@ pub type WebSocketEvent {
   OnClose(WebSocketCloseReason)
 }
 
-@target(javascript)
 /// Initialize a websocket. These constructs are fully asynchronous, so you must provide a wrapper
 /// that takes a `WebSocketEvent` and turns it into a lustre message of your application.
 /// If the path given is a URL, that is used.
@@ -89,7 +87,6 @@ pub fn init(path: String) -> Result(WebSocket, WebSocketError) {
   }
 }
 
-@target(javascript)
 pub fn listen(
   ws: WebSocket,
   on_open on_open,
@@ -102,13 +99,11 @@ pub fn listen(
   })
 }
 
-@target(javascript)
 fn get_websocket_path(path) -> Result(String, Nil) {
   page_uri()
   |> result.try(do_get_websocket_path(path, _))
 }
 
-@target(javascript)
 fn do_get_websocket_path(path: String, page_uri: Uri) -> Result(String, Nil) {
   let path_uri =
     uri.parse(path)
@@ -129,7 +124,6 @@ fn do_get_websocket_path(path: String, page_uri: Uri) -> Result(String, Nil) {
   |> Ok
 }
 
-@target(javascript)
 fn convert_scheme(scheme: String) -> Result(String, Nil) {
   case scheme {
     "https" -> Ok("wss")
@@ -139,11 +133,9 @@ fn convert_scheme(scheme: String) -> Result(String, Nil) {
   }
 }
 
-@target(javascript)
 @external(javascript, "../../../websocket.ffi.mjs", "ws_init")
 fn do_init(a: path) -> Result(WebSocket, WebSocketError)
 
-@target(javascript)
 @external(javascript, "../../../websocket.ffi.mjs", "ws_listen")
 fn do_listen(
   ws: WebSocket,
@@ -152,20 +144,16 @@ fn do_listen(
   on_close on_close: fn(Int, String) -> Nil,
 ) -> Nil
 
-@target(javascript)
 @external(javascript, "../../../websocket.ffi.mjs", "ws_send")
 pub fn send(ws ws: WebSocket, msg msg: String) -> Nil
 
-@target(javascript)
 @external(javascript, "../../../websocket.ffi.mjs", "ws_close")
 pub fn close(ws ws: WebSocket) -> Nil
 
-@target(javascript)
 fn page_uri() -> Result(Uri, Nil) {
   do_get_page_url()
   |> uri.parse
 }
 
-@target(javascript)
 @external(javascript, "../../../websocket.ffi.mjs", "get_page_url")
 fn do_get_page_url() -> String
