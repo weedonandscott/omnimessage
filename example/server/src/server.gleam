@@ -2,7 +2,6 @@ import gleam/erlang/process
 
 import mist
 import wisp
-import wisp/wisp_mist
 
 import server/context
 import server/router
@@ -13,10 +12,10 @@ pub fn main() {
 
   let assert Ok(context) = context.new()
 
-  let handler = fn(req, ws) { router.handle_request(req, ws, context) }
+  let handler = fn(req) { router.mist_handler(req, context, secret_key_base) }
 
   let assert Ok(_) =
-    wisp_mist.handler(handler, secret_key_base)
+    handler
     |> mist.new
     |> mist.port(8000)
     |> mist.start_http

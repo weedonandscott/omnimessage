@@ -2,10 +2,10 @@ import gleam/dict
 import gleam/option
 import gleam/result
 import gleam/string
+
 import lustre
 import plinth/browser/document
 import plinth/browser/element as e
-import shared
 
 import client/chat
 
@@ -27,7 +27,7 @@ pub fn main() {
     })
     |> result.then(fn(_string_model) {
       // TODO: Hydrate
-      Ok(chat.Model(shared.OmniState(dict.new()), draft_message_content: ""))
+      Ok(chat.Model(dict.new(), draft_message_content: ""))
     })
     |> option.from_result
 

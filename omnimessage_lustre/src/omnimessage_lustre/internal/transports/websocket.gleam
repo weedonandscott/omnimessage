@@ -133,10 +133,10 @@ fn convert_scheme(scheme: String) -> Result(String, Nil) {
   }
 }
 
-@external(javascript, "../../websocket.ffi.mjs", "ws_init")
+@external(javascript, "../../../websocket.ffi.mjs", "ws_init")
 fn do_init(a: path) -> Result(WebSocket, WebSocketError)
 
-@external(javascript, "../../websocket.ffi.mjs", "ws_listen")
+@external(javascript, "../../../websocket.ffi.mjs", "ws_listen")
 fn do_listen(
   ws: WebSocket,
   on_open on_open: fn(WebSocket) -> Nil,
@@ -144,10 +144,10 @@ fn do_listen(
   on_close on_close: fn(Int, String) -> Nil,
 ) -> Nil
 
-@external(javascript, "../../websocket.ffi.mjs", "ws_send")
+@external(javascript, "../../../websocket.ffi.mjs", "ws_send")
 pub fn send(ws ws: WebSocket, msg msg: String) -> Nil
 
-@external(javascript, "../../websocket.ffi.mjs", "ws_close")
+@external(javascript, "../../../websocket.ffi.mjs", "ws_close")
 pub fn close(ws ws: WebSocket) -> Nil
 
 fn page_uri() -> Result(Uri, Nil) {
@@ -155,5 +155,5 @@ fn page_uri() -> Result(Uri, Nil) {
   |> uri.parse
 }
 
-@external(javascript, "../../websocket.ffi.mjs", "get_page_url")
+@external(javascript, "../../../websocket.ffi.mjs", "get_page_url")
 fn do_get_page_url() -> String

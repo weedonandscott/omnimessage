@@ -1,37 +1,69 @@
-import filepath
-import gleam/erlang/process
 import gleam/http
-import gleam/int
-import gleam/io
-import gleam/option
-import gleam/otp/actor
+import gleam/http/request
+import gleam/http/response
+import gleam/json
 import gleam/result
-import lustre/element
+
+import filepath
 import lustre_pipes/attribute
-import lustre_pipes/element.{children, empty, text_content} as _
+import lustre_pipes/element.{children, empty, text_content}
 import lustre_pipes/element/html.{html}
+import mist
+import omnimessage_server as omniserver
 import wisp.{type Request, type Response}
+import wisp/wisp_mist
 
+import server/components/chat
 import server/context.{type Context}
-
 import shared
 
-pub fn update(msg: shared.SharedMessage, ctx: Context) -> shared.OmniState {
+type Msg {
+  ClientMessage(shared.ClientMessage)
+  ServerMessage(shared.ServerMessage)
+  Noop
+}
+
+fn encoder_decoder() -> omniserver.EncoderDecoder(Msg, String, json.DecodeError) {
+  omniserver.EncoderDecoder(
+    fn(msg) {
+      case msg {
+        // Messages must be encodable
+        ServerMessage(message) -> Ok(shared.encode_server_message(message))
+        // Return Error(Nil) for messages you don't want to send out
+        _ -> Error(Nil)
+      }
+    },
+    fn(encoded_msg) {
+      // Unsupported messages will cause TransportError(DecodeError(error)) 
+      // which you can ignore if you don't care about those messages
+      shared.decode_client_message(encoded_msg)
+      |> result.map(ClientMessage)
+    },
+  )
+}
+
+fn handle(ctx: Context, msg: Msg) -> Msg {
   case msg {
-    shared.UserSendMessage(message) -> {
+    ClientMessage(shared.UserSendMessage(message)) -> {
       ctx |> context.add_message(message)
 
-      ctx
-      |> context.get_chat_messages()
-      |> shared.OmniState
+      context.get_chat_messages(ctx)
+      |> shared.ServerUpsertMessages
+      |> ServerMessage
     }
-    shared.UserDeleteMessage(message_id) -> {
+    ClientMessage(shared.UserDeleteMessage(message_id)) -> {
       ctx |> context.delete_message(message_id)
 
-      ctx
-      |> context.get_chat_messages()
-      |> shared.OmniState
+      context.get_chat_messages(ctx)
+      |> shared.ServerUpsertMessages
+      |> ServerMessage
     }
+    ClientMessage(shared.FetchMessages) -> {
+      context.get_chat_messages(ctx)
+      |> shared.ServerUpsertMessages
+      |> ServerMessage
+    }
+    ServerMessage(_) | Noop -> Noop
   }
 }
 
@@ -39,15 +71,21 @@ fn cors_middleware(req: Request, fun: fn() -> Response) -> Response {
   case req.method {
     http.Options -> {
       wisp.response(200)
-      |> wisp.set_header("Access-Control-Allow-Origin", "*")
-      |> wisp.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-      |> wisp.set_header("Access-Control-Allow-Headers", "Content-Type")
+      |> wisp.set_header("access-control-allow-origin", "*")
+      |> wisp.set_header("access-control-allow-methods", "GET, POST, OPTIONS")
+      |> wisp.set_header(
+        "access-control-allow-headers",
+        "Content-Type,Content-Encoding",
+      )
     }
     _ -> {
       fun()
-      |> wisp.set_header("Access-Control-Allow-Origin", "*")
-      |> wisp.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-      |> wisp.set_header("Access-Control-Allow-Headers", "Content-Type")
+      |> wisp.set_header("access-control-allow-origin", "*")
+      |> wisp.set_header("access-control-allow-methods", "GET, POST, OPTIONS")
+      |> wisp.set_header(
+        "access-control-allow-headers",
+        "Content-Type,Content-Encoding",
+      )
     }
   }
 }
@@ -58,74 +96,63 @@ fn static_middleware(req: Request, fun: fn() -> Response) -> Response {
   wisp.serve_static(req, under: "/priv/static", from: priv_static, next: fun)
 }
 
-/// Route the request to the appropriate handler based on the path segments.
-pub fn handle_request(
-  req: Request,
-  ws: wisp.WsCapability(Int, String),
-  ctx: Context,
-) -> Response {
+fn wisp_handler(req, ctx) {
   use <- cors_middleware(req)
   use <- static_middleware(req)
-  case wisp.path_segments(req) |> io.debug, req.method |> io.debug {
+
+  // For handling HTTP transports
+  use <- omniserver.wisp_http_middleware(
+    req,
+    "/omni-http",
+    encoder_decoder(),
+    handle(ctx, _),
+  )
+
+  case wisp.path_segments(req), req.method {
     // Home
     [], http.Get -> home()
-    ["ws"], http.Get -> ws_handler(req, ws, ctx)
+    //
+    // If you want extra control, this is how you'd do it without middleware:
+    //
+    // ["omni-http"], http.Post -> {
+    //   use req_body <- wisp.require_string_body(req)
+    //
+    //   case
+    //     req_body
+    //     |> omnimessage_server.pipe(encoder_decoder(), handle(ctx, _))
+    //   {
+    //     Ok(Some(res_body)) -> wisp.response(200) |> wisp.string_body(res_body)
+    //     Ok(None) -> wisp.response(200)
+    //     Error(_) -> wisp.unprocessable_entity()
+    //   }
+    // }
     _, _ -> wisp.not_found()
   }
 }
 
-pub fn ws_handler(
-  req: Request,
-  ws: wisp.WsCapability(Int, String),
+// Wisp doesn't support websockets yet
+pub fn mist_handler(
+  req: request.Request(mist.Connection),
   ctx: Context,
-) -> Response {
-  let on_init = fn(conn: wisp.WsConnection) {
-    let _ =
-      ctx
-      |> context.get_chat_messages()
-      |> shared.OmniState
-      |> shared.encode_omnistate
-      |> wisp.WsSendText
-      |> conn
-    #(0, option.None)
+  secret_key_base,
+) -> response.Response(mist.ResponseData) {
+  let wisp_mist_handler =
+    fn(req) { wisp_handler(req, ctx) }
+    |> wisp_mist.handler(secret_key_base)
+
+  case request.path_segments(req), req.method {
+    ["omni-app-ws"], http.Get ->
+      omniserver.mist_websocket_application(req, chat.app(), ctx, fn(_) { Nil })
+    ["omni-pipe-ws"], http.Get ->
+      omniserver.mist_websocket_pipe(
+        req,
+        encoder_decoder(),
+        handle(ctx, _),
+        fn(_) { Nil },
+      )
+
+    _, _ -> wisp_mist_handler(req)
   }
-
-  let handler = fn(state: Int, conn: wisp.WsConnection, msg) {
-    case msg {
-      wisp.WsText(text) -> {
-        let result = {
-          use msg <- result.try(shared.decode_shared_message(text))
-
-          Ok(update(msg, ctx))
-        }
-
-        // For demo purposes
-        case int.random(2) == 0 {
-          True -> process.sleep(2000)
-          False -> Nil
-        }
-
-        case result {
-          Ok(omnistate) -> {
-            let _ =
-              shared.encode_omnistate(omnistate)
-              |> wisp.WsSendText
-              |> conn
-
-            actor.continue(state)
-          }
-          _ -> actor.continue(state)
-        }
-      }
-      wisp.WsBinary(_binary) -> actor.continue(state)
-      wisp.WsCustom(_selector) -> actor.continue(state)
-      wisp.WsClosed | wisp.WsShutdown -> actor.continue(state)
-    }
-  }
-  let on_close = fn(_state) { Nil }
-
-  wisp.WsHandler(handler, on_init, on_close)
-  |> wisp.websocket(req, ws)
 }
 
 fn page_scaffold(

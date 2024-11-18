@@ -1,4 +1,4 @@
-# Omnimessage
+# omnimessage_lustre
 
 **Seamless server communication using Lustre messages**
 
@@ -22,8 +22,9 @@ you sprinkle some Javascript. Lustre has an easier time dealing with this, but
 it can become quite cumbersome to manage the different HTTP requests and
 websocket connections.
 
-This is where Omnimessage comes in. When a lustre application is paired with a
-properly set up server, they can communicate by dispatching messages in Lustre.
+This is where Omnimessage comes in. When paired with a properly set up server
+(see [omnimessage_server](https://hexdocs.pm/omnimessage_server)), all you need
+to do to communicate is dispatch messages in Lustre:
 
 ```gleam
 import omnimessage_lustre as omniclient
@@ -79,5 +80,8 @@ fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 // and reply with an updated, correct state.
 ```
 
-Further documentation can be found at <https://hexdocs.pm/omnimessage_lustre>
-and <https://hexdocs.pm/omnimessage_server>
+Further documentation can be found at <https://hexdocs.pm/omnimessage_lustre>.
+
+### Thanks & Acknowledgements
+
+- [kero/lustre_websocket](https://codeberg.org/kero/lustre_websocket)

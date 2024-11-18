@@ -4,21 +4,23 @@ import gleam/list
 
 import decode/zero
 
-pub type SharedMessage {
+pub type ClientMessage {
   UserSendMessage(Message)
   UserDeleteMessage(MessageId)
+  FetchMessages
 }
 
-pub fn encode_shared_message(msg: SharedMessage) {
+pub fn encode_client_message(msg: ClientMessage) {
   case msg {
     UserSendMessage(message) -> [json.int(0), message_to_json(message)]
     UserDeleteMessage(message_id) -> [json.int(1), json.string(message_id)]
+    FetchMessages -> [json.int(2), json.null()]
   }
   |> json.preprocessed_array
   |> json.to_string
 }
 
-pub fn decode_shared_message(str_msg: String) {
+pub fn decode_client_message(str_msg: String) {
   let decoder = {
     use id <- zero.field(0, zero.int)
 
@@ -31,7 +33,10 @@ pub fn decode_shared_message(str_msg: String) {
         use message_id <- zero.field(1, zero.string)
         zero.success(UserDeleteMessage(message_id))
       }
-      _ -> zero.failure(UserDeleteMessage(""), "SharedMessage")
+      2 -> {
+        zero.success(FetchMessages)
+      }
+      _ -> zero.failure(FetchMessages, "SharedMessage")
     }
   }
 
@@ -39,36 +44,40 @@ pub fn decode_shared_message(str_msg: String) {
   |> json.decode(zero.run(_, decoder))
 }
 
-pub type OmniState {
-  OmniState(messages: dict.Dict(String, Message))
+pub type ServerMessage {
+  ServerUpsertMessages(dict.Dict(String, Message))
 }
 
-pub type OmniMessage
-
-pub fn decode_omnistate(omnistring: String) {
-  let decoder = {
-    use messages <- zero.field("messages", zero.list(message_decoder()))
-    let messages =
-      messages
-      |> list.map(fn(message) { #(message.id, message) })
-      |> dict.from_list()
-    zero.success(OmniState(messages:))
+pub fn encode_server_message(msg: ServerMessage) {
+  case msg {
+    ServerUpsertMessages(messages) -> [
+      json.int(0),
+      json.array(dict.values(messages), message_to_json),
+    ]
   }
-  omnistring
-  |> json.decode(zero.run(_, decoder))
+  |> json.preprocessed_array
+  |> json.to_string
 }
 
-pub fn encode_omnistate(omnistate: OmniState) {
-  json.object([
-    #(
-      "messages",
-      omnistate.messages
-        |> dict.values()
-        |> list.map(message_to_json)
-        |> json.preprocessed_array,
-    ),
-  ])
-  |> json.to_string
+pub fn decode_server_message(str_msg: String) {
+  let decoder = {
+    use id <- zero.field(0, zero.int)
+
+    case id {
+      0 -> {
+        use messages <- zero.field(1, zero.list(message_decoder()))
+        let messages =
+          messages
+          |> list.map(fn(message) { #(message.id, message) })
+          |> dict.from_list
+        zero.success(ServerUpsertMessages(messages))
+      }
+      _ -> zero.failure(ServerUpsertMessages(dict.new()), "ServerMessage")
+    }
+  }
+
+  str_msg
+  |> json.decode(zero.run(_, decoder))
 }
 
 pub type Chat {
