@@ -1,3 +1,20 @@
+/// Omniserver is the collection of tools allowing you to handle connections
+/// from omniclient Lustre applications.
+///
+/// The rule of thumb is if it initiates the connection, it's a client. If it
+/// responds to a connection request, it's a server. 
+///
+/// While you could do this manually fairly simples, the omniserver tools can
+/// help you get started quicker and provide a nicer quality-of-life.
+///
+/// Do read the source of the functions to understand how to make your own
+/// customized solution.
+///
+/// Currently only the erlang target is supported, but you could easily adapt
+/// the principles to the Node, Deno, or Bun targets. Or even to a runtime
+/// outside Gleam's ecosystem -- as long as you can send and receive encoded
+/// messages, you can communicate with an omniclient.
+///
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Decoder}
 import gleam/erlang/process.{type Subject}
@@ -17,6 +34,7 @@ import wisp
 import lustre_omnistate.{type EncoderDecoder}
 import lustre_omnistate/internal/lustre/runtime.{type Action}
 
+///
 pub opaque type App(flags, model, msg) {
   App(
     init: fn(flags) -> #(model, Effect(msg)),
@@ -34,6 +52,7 @@ pub opaque type App(flags, model, msg) {
   )
 }
 
+///
 pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
   ComposedApp(
     app: App(flags, model, msg),
@@ -41,11 +60,20 @@ pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
   )
 }
 
+/// This creates a version of a Lustre application that can be used in
+/// `omniserver.start_actor` (see below)
+///
 pub fn application(init, update, encoder_decoder) {
   let view = fn(_) { element.none() }
   ComposedApp(app: App(init, update, view, option.None), encoder_decoder:)
 }
 
+/// This is a beefed up version of `lustre.start_actor` that allows subscribing
+/// to messages dispatched inside the runtime.
+///
+/// This is what enables using a Lustre server component for communication,
+/// powering `mist_websocket_application()` below.
+///
 pub fn start_actor(
   // TODO: should this be `ComposedApp`?
   app: ComposedApp(flags, model, msg, encoding, decode_error),
@@ -72,21 +100,36 @@ fn do_start_actor(
 }
 
 @target(erlang)
+/// This action subscribes to updates in a running application.
+///
 pub fn subscribe(id: String, dispatch: fn(msg) -> Nil) {
   runtime.UpdateSubscribe(id, dispatch)
 }
 
 @target(erlang)
+/// Dispatch a message to a running application's `update` function.
+///
 pub fn dispatch(message: msg) {
   runtime.Dispatch(message)
 }
 
 @target(erlang)
+/// Instruct a running application to shut down.
+///
 pub fn shutdown() {
   runtime.Shutdown
 }
 
 @target(erlang)
+/// A wisp middleware to automatically handle HTTP POST omnimessage messages.
+///
+///   - `req`              The wisp request
+///   - `path`             The path to which messages are POSTed
+///   - `encoder_decoder`  For encoding and decoding messages
+///   - `handler`          For handling the incoming messages
+///
+/// See a full example using this in the Readme or in the examples folder.
+///
 pub fn wisp_http_middleware(
   req: wisp.Request,
   path: String,
@@ -112,6 +155,17 @@ pub fn wisp_http_middleware(
 }
 
 @target(erlang)
+/// A mist websocket handler to automatically responsd to omnimessage messages.
+///
+/// Return this as a response to the websocket init request.
+///
+///   - `req`              The mist request
+///   - `encoder_decoder`  For encoding and decoding messages
+///   - `handler`          For handling the incoming messages
+///   - `on_error`         For handling decode errors
+///
+/// See a full example using this in the Readme or in the examples folder.
+///
 pub fn mist_websocket_pipe(
   req: request.Request(mist.Connection),
   encoder_decoder: lustre_omnistate.EncoderDecoder(msg, String, decode_error),
@@ -144,6 +198,20 @@ pub fn mist_websocket_pipe(
 }
 
 @target(erlang)
+/// A mist websocket handler to automatically responsd to omnimessage messages
+/// via a Lustre server component. The server component can then be used
+/// similarly to one created by an `omniclient` and handle the messages via the
+/// update look, dispatch, and effects.
+///
+/// Return this as a response to the websocket init request.
+///
+///   - `req`       The mist request
+///   - `app`       An application created with `omniserver.application`
+///   - `flags`     Flags to hand to the application's `init`
+///   - `on_error`  For handling decode errors
+///
+/// See a full example using this in the Readme or in the examples folder.
+///
 pub fn mist_websocket_application(
   req: request.Request(mist.Connection),
   app: ComposedApp(flags, model, msg, String, decode_error),

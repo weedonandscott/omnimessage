@@ -1,9 +1,26 @@
+/// Omniclient is the collection of tools for creating Lustre applications
+/// that are able to automatically send messages to a server.
+///
+/// This allows you to seamlessly talk to a remote using normal Lustre
+/// messages, and handle replies as such.
+///
+/// While most commonly this happens in a browser, omniclients can run on
+/// erlang servers as well. The rule of thumb is if it initiates the connection,
+/// it's a client. If it responds to a connection request, it's a server. 
+///
 import lustre
 import lustre/effect
 
 import lustre_omnistate
 import lustre_omnistate/omniclient/transports.{type TransportState}
 
+/// Creates an omniclient Lustre application. The extra parameters are:
+///   - `encoder_decoder`    encodes and decodes messages, see definition in
+///                          `lustre_omnimessage`
+///   - `transport`          will transfer and recieve encoded messages. see
+///                          `omniclient/transports` for available ones
+///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
+///
 pub fn application(
   init,
   update,
@@ -18,6 +35,13 @@ pub fn application(
   lustre.application(omniinit, omniupdate, view)
 }
 
+/// Creates an omniclient Lustre component. The extra parameters are:
+///   - `encoder_decoder`    encodes and decodes messages, see definition in
+///                          `lustre_omnimessage`
+///   - `transport`          will transfer and recieve encoded messages. see
+///                          `omniclient/transports` for available ones
+///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
+///
 pub fn component(
   init,
   update,

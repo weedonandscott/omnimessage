@@ -1,3 +1,15 @@
+/// Transports tell an omniclient Lustre application how to communicate with
+/// the server.
+///
+/// You hand them to `omnistate.application()` or `omnistate.component()`
+/// alongside an `EncoderDecoder` that corresponds to the encoding they use.
+///
+/// Various transports are available, but you can always write your own if
+/// something is missing. Underneath, a transport is just some callbacks for
+/// when you receive an already encoded message.
+///
+/// Note that transports do not your support automatic reconnection on errors.
+///
 import gleam/dict
 import gleam/fetch
 import gleam/http
@@ -11,18 +23,33 @@ import gleam/result
 import lustre_omnistate
 import lustre_omnistate/internal/transports/websocket
 
-pub type TransportError(decode_error) {
-  InitError(message: String)
-  DecodeError(decode_error)
-  SendError(message: String)
-}
-
+/// This type represents the state messages sent to your Lustre application via
+/// the wrapper you gave on application creation.
+///
+/// It allows you to do housekeeping such as init calls, online/offline
+/// inidcators, and debugging.
+///
 pub type TransportState(decode_error) {
   TransportUp
   TransportDown(code: Int, message: String)
   TransportError(TransportError(decode_error))
 }
 
+/// This represents an error in the transport itself (e.g, loss of connection),
+/// sent inside a `TransportError` record.
+///
+/// Note that this isn't for error handling of your app logic, use omnimessage
+/// messages for that.
+///
+pub type TransportError(decode_error) {
+  InitError(message: String)
+  DecodeError(decode_error)
+  SendError(message: String)
+}
+
+/// Represents the handlers a transport uses for communication. Unless you're
+/// building a transport, you don't need to know about this.
+///
 pub type TransportHandlers(encoding, decode_error) {
   TransportHandlers(
     on_up: fn() -> Nil,
@@ -32,6 +59,7 @@ pub type TransportHandlers(encoding, decode_error) {
   )
 }
 
+///
 pub type Transport(encoding, decode_error) {
   Transport(
     listen: fn(TransportHandlers(encoding, decode_error)) -> Nil,
@@ -40,6 +68,7 @@ pub type Transport(encoding, decode_error) {
 }
 
 @target(javascript)
+/// A websocket transport using text frames
 pub fn websocket(path: String) -> Transport(String, decode_error) {
   case websocket.init(path) {
     Ok(ws) -> {
@@ -114,6 +143,7 @@ fn handle_http_response(
 fn on_online_change(callback: fn(Bool) -> Nil) -> Bool
 
 @target(javascript)
+/// An http transport using text requests
 pub fn http(
   path path: String,
   method method: option.Option(http.Method),
@@ -155,6 +185,7 @@ pub fn http(
 }
 
 @target(erlang)
+/// An http transport using text requests
 pub fn http(
   path path: String,
   method method: option.Option(http.Method),
