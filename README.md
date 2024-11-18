@@ -1,4 +1,4 @@
-# omnimessage_lustre
+# Omnimessage
 
 **Seamless server communication using Lustre messages**
 
