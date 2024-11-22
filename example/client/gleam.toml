@@ -16,7 +16,6 @@ lustre_pipes = ">= 0.0.1 and < 1.0.0"
 omnimessage_lustre = { path = "../../omnimessage_lustre" }
 shared = { path = "../shared" }
 decode = ">= 0.4.1 and < 1.0.0"
-gluid = ">= 1.0.0 and < 2.0.0"
 lustre_websocket = ">= 0.7.6 and < 1.0.0"
 
 [dev-dependencies]

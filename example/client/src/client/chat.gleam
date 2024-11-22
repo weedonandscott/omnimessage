@@ -4,17 +4,20 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option}
 import gleam/result
-import gleam/string
-import gluid
 import lustre/effect
 import lustre_pipes/attribute
 import lustre_pipes/element
 import lustre_pipes/element/html
 import lustre_pipes/event
+import lustre_pipes/server_component
 import omnimessage_lustre as omniclient
 import omnimessage_lustre/transports
+import plinth/browser/document
+import plinth/browser/element as plinth_element
 
-import shared.{type ClientMessage, type Message, type ServerMessage, Message}
+import shared.{
+  type ChatMessage, type ClientMessage, type ServerMessage, ChatMessage,
+}
 
 // MAIN ------------------------------------------------------------------------
 
@@ -52,75 +55,70 @@ pub fn chat() {
 // MODEL -----------------------------------------------------------------------
 
 pub type Model {
-  Model(messages: dict.Dict(String, Message), draft_message_content: String)
+  Model(chat_msgs: dict.Dict(String, ChatMessage), draft_content: String)
 }
 
 fn init(_initial_model: Option(Model)) -> #(Model, effect.Effect(Msg)) {
-  #(Model(dict.new(), draft_message_content: ""), effect.none())
+  #(Model(dict.new(), draft_content: ""), effect.none())
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 pub type Msg {
   UserSendDraft
+  UserScrollToLatest
+  UserUpdateDraftContent(String)
   ClientMessage(ClientMessage)
   ServerMessage(ServerMessage)
-  UserUpdateDraftMessageContent(content: String)
   TransportState(transports.TransportState(json.DecodeError))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
     // Good old UI
+    UserUpdateDraftContent(content) -> #(
+      Model(..model, draft_content: content),
+      effect.none(),
+    )
     UserSendDraft -> {
-      let message =
-        Message(
-          id: gluid.guidv4() |> string.lowercase(),
-          content: model.draft_message_content,
-          status: shared.Draft,
-          sent_at: birl.now() |> birl.to_iso8601,
-        )
-
       #(
-        Model(..model, draft_message_content: ""),
+        Model(..model, draft_content: ""),
         effect.from(fn(dispatch) {
-          dispatch(ClientMessage(shared.UserSendMessage(message)))
+          shared.new_chat_msg(model.draft_content, shared.Sending)
+          |> shared.UserSendChatMessage
+          |> ClientMessage
+          |> dispatch
         }),
       )
     }
-    UserUpdateDraftMessageContent(content) -> #(
-      Model(..model, draft_message_content: content),
-      effect.none(),
-    )
+    UserScrollToLatest -> #(model, scroll_to_latest_message())
     // Shared messages
-    ClientMessage(shared.UserSendMessage(message)) -> {
-      let message = Message(..message, status: shared.Sending)
+    ClientMessage(shared.UserSendChatMessage(chat_msg)) -> {
+      let chat_msgs =
+        model.chat_msgs
+        |> dict.insert(chat_msg.id, chat_msg)
 
-      let messages =
-        model.messages
-        |> dict.insert(message.id, message)
-
-      #(Model(..model, messages:), effect.none())
+      #(Model(..model, chat_msgs:), scroll_to_latest_message())
     }
     // The rest of the ClientMessages are exlusively handled by the server
     ClientMessage(_) -> {
       #(model, effect.none())
     }
     // Merge strategy
-    ServerMessage(shared.ServerUpsertMessages(server_messages)) -> {
-      let messages =
-        model.messages
+    ServerMessage(shared.ServerUpsertChatMessages(server_messages)) -> {
+      let chat_msgs =
+        model.chat_msgs
         // Omnimessage shines when you're OK with server being source of truth
         |> dict.merge(server_messages)
 
-      #(Model(..model, messages:), effect.none())
+      #(Model(..model, chat_msgs:), effect.none())
     }
     // State handlers - use for initialization, debug, online/offline indicator
     TransportState(transports.TransportUp) -> {
       #(
         model,
         effect.from(fn(dispatch) {
-          dispatch(ClientMessage(shared.FetchMessages))
+          dispatch(ClientMessage(shared.FetchChatMessages))
         }),
       )
     }
@@ -135,51 +133,80 @@ fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   }
 }
 
+const msgs_container_id = "chat-msgs"
+
+fn scroll_to_latest_message() {
+  effect.from(fn(_dispatch) {
+    let _ =
+      document.get_element_by_id(msgs_container_id)
+      |> result.then(fn(container) {
+        plinth_element.scroll_height(container)
+        |> plinth_element.set_scroll_top(container, _)
+        Ok(Nil)
+      })
+
+    Nil
+  })
+}
+
 // VIEW ------------------------------------------------------------------------
 
-pub fn message_element(message: Message) {
+fn chat_message_element(chat_msg: ChatMessage) {
   html.div()
   |> element.children([
     html.p()
     |> element.text_content(
-      shared.encode_status(message.status) <> ": " <> message.content,
+      shared.status_string(chat_msg.status) <> ": " <> chat_msg.content,
     ),
   ])
 }
 
-fn sort_messages(messages: List(Message)) {
-  messages
-  |> list.sort(fn(message_a, message_b) {
-    string.compare(message_a.sent_at, message_b.sent_at)
-  })
+fn sort_chat_messages(chat_msgs: List(ChatMessage)) {
+  use msg_a, msg_b <- list.sort(chat_msgs)
+  birl.compare(msg_a.sent_at, msg_b.sent_at)
 }
 
 fn view(model: Model) -> element.Element(Msg) {
-  let sorted_messages =
-    model.messages
+  let sorted_chat_msgs =
+    model.chat_msgs
     |> dict.values
-    |> sort_messages
+    |> sort_chat_messages
+
   html.div()
   |> attribute.class("h-full flex flex-col justify-center items-center gap-y-5")
   |> element.children([
     html.div()
+      |> attribute.class("flex justify-center")
+      |> element.children([
+        server_component.component()
+        |> server_component.route("/sessions-count")
+        |> element.empty(),
+      ]),
+    html.div()
+      |> attribute.id(msgs_container_id)
+      |> attribute.class(
+        "h-80 w-80 overflow-y-auto p-5 border border-gray-400 rounded-xl",
+      )
       |> element.keyed({
-        use message <- list.map(sorted_messages)
-        #(message.id, message_element(message))
+        use chat_msg <- list.map(sorted_chat_msgs)
+        #(chat_msg.id, chat_message_element(chat_msg))
       }),
     html.form()
+      |> attribute.class("w-80 flex gap-x-4")
       |> event.on_submit(UserSendDraft)
       |> element.children([
         html.input()
-          |> event.on_input(UserUpdateDraftMessageContent)
+          |> event.on_input(UserUpdateDraftContent)
           |> attribute.type_("text")
-          |> attribute.value(model.draft_message_content)
-          |> attribute.class("border border-black py-1 px-2")
+          |> attribute.value(model.draft_content)
+          |> attribute.class("flex-1 border border-gray-400 rounded-lg p-1.5")
           |> element.empty(),
         html.input()
           |> attribute.type_("submit")
           |> attribute.value("Send")
-          |> attribute.class("ml-4 border border-black py-1 px-2")
+          |> attribute.class(
+            "border border-gray-400 rounded-lg p-1.5 text-gray-700 font-bold",
+          )
           |> element.empty(),
       ]),
   ])

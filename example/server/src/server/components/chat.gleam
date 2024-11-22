@@ -37,7 +37,7 @@ fn get_messages(ctx: Context) {
 }
 
 pub type Model {
-  Model(messages: dict.Dict(String, shared.Message), ctx: Context)
+  Model(messages: dict.Dict(String, shared.ChatMessage), ctx: Context)
 }
 
 fn init(ctx: Context) -> #(Model, effect.Effect(Msg)) {
@@ -53,38 +53,39 @@ pub type Msg {
 
 pub fn update(model: Model, msg: Msg) {
   case msg {
-    ClientMessage(shared.UserSendMessage(message)) -> #(
+    ClientMessage(shared.UserSendChatMessage(chat_msg)) -> #(
       model,
       effect.from(fn(dispatch) {
-        model.ctx |> context.add_message(message)
+        shared.ChatMessage(..chat_msg, status: shared.Sent)
+        |> context.add_chat_message(model.ctx, _)
 
         get_messages(model.ctx)
-        |> shared.ServerUpsertMessages
+        |> shared.ServerUpsertChatMessages
         |> ServerMessage
         |> dispatch
       }),
     )
-    ClientMessage(shared.UserDeleteMessage(message_id)) -> #(
+    ClientMessage(shared.UserDeleteChatMessage(message_id)) -> #(
       model,
       effect.from(fn(dispatch) {
-        model.ctx |> context.delete_message(message_id)
+        model.ctx |> context.delete_chat_message(message_id)
 
         get_messages(model.ctx)
-        |> shared.ServerUpsertMessages
+        |> shared.ServerUpsertChatMessages
         |> ServerMessage
         |> dispatch
       }),
     )
-    ClientMessage(shared.FetchMessages) -> #(
+    ClientMessage(shared.FetchChatMessages) -> #(
       model,
       effect.from(fn(dispatch) {
         get_messages(model.ctx)
-        |> shared.ServerUpsertMessages
+        |> shared.ServerUpsertChatMessages
         |> ServerMessage
         |> dispatch
       }),
     )
-    ServerMessage(shared.ServerUpsertMessages(messages)) -> #(
+    ServerMessage(shared.ServerUpsertChatMessages(messages)) -> #(
       Model(..model, messages:),
       effect.none(),
     )
