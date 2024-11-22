@@ -9,7 +9,7 @@ internal_modules = ["omnimessage_server/internal", "omnimessage_server/internal/
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-gleam_json = ">= 1.0.1 and < 2.0.0"
+gleam_json = ">= 2.0.0 and < 3.0.0"
 gleam_otp = ">= 0.14.1 and < 1.0.0"
 gleam_http = ">= 3.7.0 and < 4.0.0"
 gleam_httpc = ">= 4.0.0 and < 5.0.0"

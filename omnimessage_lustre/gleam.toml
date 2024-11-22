@@ -10,7 +10,7 @@ internal_modules = ["omnimessage_lustre/internal", "omnimessage_lustre/internal/
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-gleam_json = ">= 1.0.1 and < 2.0.0"
+gleam_json = ">= 2.0.0 and < 3.0.0"
 lustre = ">= 4.6.1 and < 5.0.0"
 gleam_fetch = ">= 1.0.1 and < 2.0.0"
 gleam_http = ">= 3.7.0 and < 4.0.0"

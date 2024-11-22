@@ -27,7 +27,7 @@ pub fn main() {
     })
     |> result.then(fn(_string_model) {
       // TODO: Hydrate
-      Ok(chat.Model(dict.new(), draft_message_content: ""))
+      Ok(chat.Model(dict.new(), draft_content: ""))
     })
     |> option.from_result
 

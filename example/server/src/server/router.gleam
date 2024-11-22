@@ -1,8 +1,14 @@
+import gleam/erlang/process
+import gleam/function
 import gleam/http
 import gleam/http/request
 import gleam/http/response
 import gleam/json
+import gleam/option
+import gleam/otp/actor
 import gleam/result
+import lustre
+import lustre/server_component
 
 import filepath
 import lustre_pipes/attribute
@@ -14,6 +20,7 @@ import wisp.{type Request, type Response}
 import wisp/wisp_mist
 
 import server/components/chat
+import server/components/sessions_count
 import server/context.{type Context}
 import shared
 
@@ -44,23 +51,24 @@ fn encoder_decoder() -> omniserver.EncoderDecoder(Msg, String, json.DecodeError)
 
 fn handle(ctx: Context, msg: Msg) -> Msg {
   case msg {
-    ClientMessage(shared.UserSendMessage(message)) -> {
-      ctx |> context.add_message(message)
+    ClientMessage(shared.UserSendChatMessage(chat_msg)) -> {
+      shared.ChatMessage(..chat_msg, status: shared.Sent)
+      |> context.add_chat_message(ctx, _)
 
       context.get_chat_messages(ctx)
-      |> shared.ServerUpsertMessages
+      |> shared.ServerUpsertChatMessages
       |> ServerMessage
     }
-    ClientMessage(shared.UserDeleteMessage(message_id)) -> {
-      ctx |> context.delete_message(message_id)
+    ClientMessage(shared.UserDeleteChatMessage(message_id)) -> {
+      ctx |> context.delete_chat_message(message_id)
 
       context.get_chat_messages(ctx)
-      |> shared.ServerUpsertMessages
+      |> shared.ServerUpsertChatMessages
       |> ServerMessage
     }
-    ClientMessage(shared.FetchMessages) -> {
+    ClientMessage(shared.FetchChatMessages) -> {
       context.get_chat_messages(ctx)
-      |> shared.ServerUpsertMessages
+      |> shared.ServerUpsertChatMessages
       |> ServerMessage
     }
     ServerMessage(_) | Noop -> Noop
@@ -130,6 +138,9 @@ fn wisp_handler(req, ctx) {
   }
 }
 
+type SessionCountRuntime =
+  process.Subject(lustre.Action(sessions_count.Msg, lustre.ServerComponent))
+
 // Wisp doesn't support websockets yet
 pub fn mist_handler(
   req: request.Request(mist.Connection),
@@ -150,6 +161,69 @@ pub fn mist_handler(
         handle(ctx, _),
         fn(_) { Nil },
       )
+    ["sessions-count"], http.Get ->
+      mist.websocket(
+        req,
+        on_init: fn(_) {
+          let self = process.new_subject()
+          let count_app = sessions_count.app()
+          let assert Ok(count_runtime) =
+            lustre.start_actor(count_app, context.add_session_listener(
+              ctx,
+              wisp.random_string(5),
+              _,
+            ))
+
+          process.send(
+            count_runtime,
+            server_component.subscribe("sessions_count_ws", process.send(
+              self,
+              _,
+            )),
+          )
+
+          context.increment_session_count(ctx)
+
+          #(
+            count_runtime,
+            option.Some(process.selecting(
+              process.new_selector(),
+              self,
+              function.identity,
+            )),
+          )
+        },
+        handler: fn(count_runtime: SessionCountRuntime, conn, msg) {
+          case msg {
+            mist.Text(json) -> {
+              let action = json.decode(json, server_component.decode_action)
+
+              case action {
+                Ok(action) -> process.send(count_runtime, action)
+                Error(_) -> Nil
+              }
+
+              actor.continue(count_runtime)
+            }
+            mist.Custom(patch) -> {
+              let assert Ok(_) =
+                patch
+                |> server_component.encode_patch
+                |> json.to_string
+                |> mist.send_text_frame(conn, _)
+
+              actor.continue(count_runtime)
+            }
+            mist.Closed | mist.Shutdown -> actor.Stop(process.Normal)
+            mist.Binary(_) -> actor.continue(count_runtime)
+          }
+        },
+        on_close: fn(count_runtime: SessionCountRuntime) {
+          context.decrement_session_count(ctx)
+
+          process.send(count_runtime, lustre.shutdown())
+        },
+      )
 
     _, _ -> wisp_mist_handler(req)
   }
@@ -161,6 +235,7 @@ fn page_scaffold(
 ) -> element.Element(a) {
   html.html()
   |> attribute.attribute("lang", "en")
+  |> attribute.class("h-full w-full overflow-hidden")
   |> children([
     html.head()
     |> children([
@@ -177,11 +252,15 @@ fn page_scaffold(
       html.title()
         |> text_content("Lustre Omnistate"),
       html.link()
-        |> attribute.href("/static/client.css")
+        |> attribute.href("/priv/static/client.css")
         |> attribute.rel("stylesheet")
         |> empty(),
       html.script()
-        |> attribute.src("/static/client.mjs")
+        |> attribute.src("/priv/static/client.mjs")
+        |> attribute.type_("module")
+        |> empty(),
+      html.script()
+        |> attribute.src("/priv/static/lustre-server-component.mjs")
         |> attribute.type_("module")
         |> empty(),
       html.script()
@@ -189,9 +268,11 @@ fn page_scaffold(
         |> attribute.type_("module")
         |> text_content(init_json),
       html.body()
+        |> attribute.class("h-full w-full")
         |> children([
           html.div()
           |> attribute.id("app")
+          |> attribute.class("h-full w-full")
           |> children([content]),
         ]),
     ]),
