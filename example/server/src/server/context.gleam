@@ -1,5 +1,8 @@
+/// NOTE! This is a very rudimentary PubSub for the purpose of demonstrating
+/// OmniMessage. In production, use a proper PubSub, remove listeners when
+/// requests are closed, etc.
 import carpenter/table
-import gleam/dict
+import gleam/dict.{type Dict}
 import gleam/erlang/process
 import gleam/int
 import gleam/list
@@ -18,13 +21,20 @@ type Tables {
 pub type Context =
   process.Subject(Message)
 
+pub type SessionCountListener =
+  fn(Int) -> Nil
+
+pub type ChatMessagesListener =
+  fn(Dict(String, shared.ChatMessage)) -> Nil
+
 pub type Message {
-  GetChatMessages(to: process.Subject(dict.Dict(String, shared.ChatMessage)))
+  GetChatMessages(to: process.Subject(Dict(String, shared.ChatMessage)))
   AddChatMessage(shared.ChatMessage)
   DeleteChatMessage(shared.ChatMessageId)
   IncremenetSessionCount
   DecremenetSessionCount
-  AddSessionListener(String, fn(Int) -> Nil)
+  AddSessionCountListener(String, SessionCountListener)
+  AddChatMessagesListener(String, ChatMessagesListener)
   Shutdown
 }
 
@@ -52,64 +62,97 @@ fn do_get_chat_messages(tables: Tables) {
   }
 }
 
-type State =
-  #(Tables, dict.Dict(String, fn(Int) -> Nil))
+type ContextState {
+  ContextState(
+    tables: Tables,
+    session_count_listeners: Dict(String, SessionCountListener),
+    chat_msgs_listeners: Dict(String, ChatMessagesListener),
+  )
+}
 
-fn handle_message(message: Message, state: State) -> actor.Next(Message, State) {
-  let tables = state.0
-  let listeners = state.1
-
+fn handle_message(
+  message: Message,
+  state: ContextState,
+) -> actor.Next(Message, ContextState) {
   case message {
     Shutdown -> actor.Stop(process.Normal)
 
     GetChatMessages(to) -> {
-      do_get_chat_messages(tables)
+      do_get_chat_messages(state.tables)
       |> process.send(to, _)
 
       actor.continue(state)
     }
 
     AddChatMessage(chat_msg) -> {
-      let chat =
-        Chat(do_get_chat_messages(tables) |> dict.insert(chat_msg.id, chat_msg))
+      let messages =
+        do_get_chat_messages(state.tables)
+        |> dict.insert(chat_msg.id, chat_msg)
 
-      tables.chats |> table.insert([#(chat_id, chat)])
+      state.tables.chats |> table.insert([#(chat_id, Chat(messages))])
+
+      state.chat_msgs_listeners
+      |> dict.each(fn(_, listener) { listener(messages) })
 
       actor.continue(state)
     }
 
     DeleteChatMessage(chat_msg_id) -> {
-      let chat = Chat(do_get_chat_messages(tables) |> dict.delete(chat_msg_id))
+      let messages =
+        do_get_chat_messages(state.tables) |> dict.delete(chat_msg_id)
 
-      tables.chats |> table.insert([#(chat_id, chat)])
+      state.tables.chats |> table.insert([#(chat_id, Chat(messages))])
+
+      state.chat_msgs_listeners
+      |> dict.each(fn(_, listener) { listener(messages) })
 
       actor.continue(state)
     }
 
     IncremenetSessionCount -> {
-      let new_count = get_sessions_count(tables) + 1
+      let new_count = get_sessions_count(state.tables) + 1
 
-      tables.sessions_count |> table.insert([#(chat_id, new_count)])
+      state.tables.sessions_count |> table.insert([#(chat_id, new_count)])
 
-      listeners |> dict.each(fn(_, listener) { listener(new_count) })
+      state.session_count_listeners
+      |> dict.each(fn(_, listener) { listener(new_count) })
 
       actor.continue(state)
     }
 
     DecremenetSessionCount -> {
-      let new_count = int.max(0, get_sessions_count(tables) - 1)
+      let new_count = int.max(0, get_sessions_count(state.tables) - 1)
 
-      tables.sessions_count |> table.insert([#(chat_id, new_count)])
+      state.tables.sessions_count |> table.insert([#(chat_id, new_count)])
 
-      listeners |> dict.each(fn(_, listener) { listener(new_count) })
+      state.session_count_listeners
+      |> dict.each(fn(_, listener) { listener(new_count) })
 
       actor.continue(state)
     }
 
-    AddSessionListener(id, listener) -> {
-      listener(get_sessions_count(tables))
+    AddSessionCountListener(id, listener) -> {
+      listener(get_sessions_count(state.tables))
 
-      actor.continue(#(tables, listeners |> dict.insert(id, listener)))
+      actor.continue(
+        ContextState(
+          ..state,
+          session_count_listeners: state.session_count_listeners
+            |> dict.insert(id, listener),
+        ),
+      )
+    }
+
+    AddChatMessagesListener(id, listener) -> {
+      listener(do_get_chat_messages(state.tables))
+
+      actor.continue(
+        ContextState(
+          ..state,
+          chat_msgs_listeners: state.chat_msgs_listeners
+            |> dict.insert(id, listener),
+        ),
+      )
     }
   }
 }
@@ -135,7 +178,11 @@ pub fn new() {
     |> table.set,
   )
 
-  #(Tables(chats:, sessions_count:), dict.new())
+  ContextState(
+    tables: Tables(chats:, sessions_count:),
+    session_count_listeners: dict.new(),
+    chat_msgs_listeners: dict.new(),
+  )
   |> actor.start(handle_message)
   |> result.replace_error(Nil)
 }
@@ -154,8 +201,20 @@ pub fn delete_chat_message(ctx: Context, chat_msg_id: shared.ChatMessageId) {
   process.send(ctx, DeleteChatMessage(chat_msg_id))
 }
 
-pub fn add_session_listener(ctx: Context, id: String, listener: fn(Int) -> Nil) {
-  process.send(ctx, AddSessionListener(id, listener))
+pub fn add_chat_messages_listener(
+  ctx: Context,
+  id: String,
+  listener: ChatMessagesListener,
+) {
+  process.send(ctx, AddChatMessagesListener(id, listener))
+}
+
+pub fn add_session_listener(
+  ctx: Context,
+  id: String,
+  listener: SessionCountListener,
+) {
+  process.send(ctx, AddSessionCountListener(id, listener))
 }
 
 pub fn increment_session_count(ctx: Context) {
