@@ -305,7 +305,7 @@ fn page_scaffold(
         )
         |> empty(),
       html.title()
-        |> text_content("Lustre Omnistate"),
+        |> text_content("Lustre OmniMessage"),
       html.link()
         |> attribute.href("/priv/static/client.css")
         |> attribute.rel("stylesheet")

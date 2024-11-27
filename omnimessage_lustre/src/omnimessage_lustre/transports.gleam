@@ -1,7 +1,7 @@
 /// Transports tell an omnimessage_lustre application how to communicate with
 /// the server.
 ///
-/// You hand them to `omnistate.application()` or `omnistate.component()`
+/// You hand them to `omniclient.application()` or `omniclient.component()`
 /// alongside an `EncoderDecoder` that corresponds to the encoding they use.
 ///
 /// Various transports are available, but you can always write your own if

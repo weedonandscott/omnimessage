@@ -110,24 +110,44 @@ var BitArray = class _BitArray {
   }
 };
 function byteArrayToInt(byteArray, start3, end, isBigEndian, isSigned) {
-  let value4 = 0;
-  if (isBigEndian) {
-    for (let i = start3; i < end; i++) {
-      value4 = value4 * 256 + byteArray[i];
+  const byteSize = end - start3;
+  if (byteSize <= 6) {
+    let value4 = 0;
+    if (isBigEndian) {
+      for (let i = start3; i < end; i++) {
+        value4 = value4 * 256 + byteArray[i];
+      }
+    } else {
+      for (let i = end - 1; i >= start3; i--) {
+        value4 = value4 * 256 + byteArray[i];
+      }
     }
+    if (isSigned) {
+      const highBit = 2 ** (byteSize * 8 - 1);
+      if (value4 >= highBit) {
+        value4 -= highBit * 2;
+      }
+    }
+    return value4;
   } else {
-    for (let i = end - 1; i >= start3; i--) {
-      value4 = value4 * 256 + byteArray[i];
+    let value4 = 0n;
+    if (isBigEndian) {
+      for (let i = start3; i < end; i++) {
+        value4 = (value4 << 8n) + BigInt(byteArray[i]);
+      }
+    } else {
+      for (let i = end - 1; i >= start3; i--) {
+        value4 = (value4 << 8n) + BigInt(byteArray[i]);
+      }
     }
-  }
-  if (isSigned) {
-    const byteSize = end - start3;
-    const highBit = 2 ** (byteSize * 8 - 1);
-    if (value4 >= highBit) {
-      value4 -= highBit * 2;
+    if (isSigned) {
+      const highBit = 1n << BigInt(byteSize * 8 - 1);
+      if (value4 >= highBit) {
+        value4 -= highBit * 2n;
+      }
     }
+    return Number(value4);
   }
-  return value4;
 }
 function byteArrayToFloat(byteArray, start3, end, isBigEndian) {
   const view2 = new DataView(byteArray.buffer);
