@@ -4,7 +4,7 @@ import gleam/http
 import gleam/http/request
 import gleam/http/response
 import gleam/json
-import gleam/option
+import gleam/option.{Some}
 import gleam/otp/actor
 import gleam/result
 import lustre
@@ -161,6 +161,61 @@ pub fn mist_handler(
         handle(ctx, _),
         fn(_) { Nil },
       )
+    //
+    // This is an example of manual websocket implementation, in case custom
+    // functionality is needed, such as custom push logic. It is commented out
+    // becuase the rudimentary PubSub implemented in `context` does not support
+    // sending mist websocket message, thefore the added listener will cause a
+    // panic. I leave this code here for your reference, in case you want to
+    // implement similar (yet working) logic.
+    //
+    // ["omni-manual-ws"], http.Get ->
+    //   mist.websocket(
+    //     request: req,
+    //     on_init: fn(conn) {
+    //       context.add_chat_messages_listener(
+    //         ctx,
+    //         wisp.random_string(5),
+    //         fn(chat_msgs) {
+    //           let encoded_msg =
+    //             chat_msgs
+    //             |> shared.ServerUpsertChatMessages
+    //             |> ServerMessage
+    //             |> encoder_decoder().encode
+    //
+    //           let _ = case encoded_msg {
+    //             Ok(encoded_msg) -> mist.send_text_frame(conn, encoded_msg)
+    //             _ -> Ok(Nil)
+    //           }
+    //
+    //           Nil
+    //         },
+    //       )
+    //
+    //       #(None, None)
+    //     },
+    //     handler: fn(runtime, conn, msg) {
+    //       case msg {
+    //         mist.Text(msg) -> {
+    //           let _ = case
+    //             omniserver.pipe(msg, encoder_decoder(), handle(ctx, _))
+    //           {
+    //             Ok(Some(encoded_msg)) -> mist.send_text_frame(conn, encoded_msg)
+    //             Ok(None) -> Ok(Nil)
+    //             Error(decode_error) -> Ok(Nil)
+    //           }
+    //           actor.continue(runtime)
+    //         }
+    //
+    //         mist.Binary(_) -> actor.continue(runtime)
+    //
+    //         mist.Custom(_) -> actor.continue(runtime)
+    //
+    //         mist.Closed | mist.Shutdown -> actor.Stop(process.Normal)
+    //       }
+    //     },
+    //     on_close: fn(_) { Nil },
+    //   )
     ["sessions-count"], http.Get ->
       mist.websocket(
         req,
@@ -186,7 +241,7 @@ pub fn mist_handler(
 
           #(
             count_runtime,
-            option.Some(process.selecting(
+            Some(process.selecting(
               process.new_selector(),
               self,
               function.identity,
