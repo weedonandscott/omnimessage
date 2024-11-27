@@ -3,6 +3,7 @@ import gleam/result
 import lustre/effect
 import omnimessage_server as omniserver
 import shared.{type ClientMessage, type ServerMessage}
+import wisp
 
 import server/context.{type Context}
 
@@ -40,8 +41,26 @@ pub type Model {
   Model(messages: dict.Dict(String, shared.ChatMessage), ctx: Context)
 }
 
+// Unlike the session count component, this one is handed the entire app
+// context, which isn't abstracted away. This being a good or bad choice
+// depends on your speicifc application.
 fn init(ctx: Context) -> #(Model, effect.Effect(Msg)) {
-  #(Model(messages: get_messages(ctx), ctx:), effect.none())
+  #(
+    Model(messages: get_messages(ctx), ctx:),
+    //
+    effect.from(fn(dispatch) {
+      context.add_chat_messages_listener(
+        ctx,
+        wisp.random_string(5),
+        fn(messages) {
+          messages
+          |> shared.ServerUpsertChatMessages
+          |> ServerMessage
+          |> dispatch
+        },
+      )
+    }),
+  )
 }
 
 // UPDATE ----------------------------------------------------------------------
