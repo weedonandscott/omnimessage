@@ -1,17 +1,17 @@
-/// omnimessage_lustre is the collection of tools for creating Lustre
+/// omnimessage/lustre is the collection of tools for creating Lustre
 /// applications that are able to automatically send messages to a server.
 ///
 /// This allows you to seamlessly talk to a remote using normal Lustre
 /// messages, and handle replies as such.
 ///
-/// While most commonly this happens in a browser, omnimessage_lustre can run on
+/// While most commonly this happens in a browser, omnimessage/lustre can run on
 /// erlang servers as well. The rule of thumb is if it initiates the connection,
 /// it's a client. If it responds to a connection request, it's a server. 
 ///
 import lustre
 import lustre/effect
 
-import omnimessage_lustre/transports.{type TransportState}
+import omnimessage/lustre/transports.{type TransportState}
 
 /// Holds decode and encode functions for omnimessage messages. Decode errors
 /// will be called back for you to handle, while Encode errors are interpreted
@@ -51,10 +51,10 @@ pub type EncoderDecoder(msg, encoding, decode_error) {
   )
 }
 
-/// Creates an omnimessage_lustre application. The extra parameters are:
+/// Creates an omnimessage/lustre application. The extra parameters are:
 ///   - `encoder_decoder`    encodes and decodes messages
 ///   - `transport`          will transfer and recieve encoded messages. see
-///                          `omnimessage_lustre/transports` for available ones
+///                          `omnimessage/lustre/transports` for available ones
 ///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
 ///
 pub fn application(
@@ -71,10 +71,10 @@ pub fn application(
   lustre.application(omniinit, omniupdate, view)
 }
 
-/// Creates an omnimessage_lustre Lustre component. The extra parameters are:
+/// Creates an omnimessage/lustre Lustre component. The extra parameters are:
 ///   - `encoder_decoder`    encodes and decodes messages
 ///   - `transport`          will transfer and recieve encoded messages. see
-///                          `omnimessage_lustre/transports` for available ones
+///                          `omnimessage/lustre/transports` for available ones
 ///   - `transport_wrapper`  a wrapper for your `Msg` type for transport status
 ///
 pub fn component(

@@ -1,12 +1,12 @@
 name = "omnimessage_lustre"
-version = "0.1.0"
+version = "0.2.0"
 target = "javascript"
 
 description = "Use Remote State, Locally"
 repository = { type = "github", user = "weedonandscott", repo = "omnimessage" }
 licences = ["MIT"]
 
-internal_modules = ["omnimessage_lustre/internal", "omnimessage_lustre/internal/*"]
+internal_modules = ["omnimessage/lustre/internal", "omnimessage/lustre/internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"

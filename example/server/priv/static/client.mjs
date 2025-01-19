@@ -41,10 +41,10 @@ var List = class {
   }
   // @internal
   countLength() {
-    let length5 = 0;
+    let length4 = 0;
     for (let _ of this)
-      length5++;
-    return length5;
+      length4++;
+    return length4;
   }
 };
 function prepend(element3, tail) {
@@ -102,11 +102,21 @@ var BitArray = class _BitArray {
   }
   // @internal
   binaryFromSlice(start3, end) {
-    return new _BitArray(this.buffer.slice(start3, end));
+    const buffer = new Uint8Array(
+      this.buffer.buffer,
+      this.buffer.byteOffset + start3,
+      end - start3
+    );
+    return new _BitArray(buffer);
   }
   // @internal
   sliceAfter(index4) {
-    return new _BitArray(this.buffer.slice(index4));
+    const buffer = new Uint8Array(
+      this.buffer.buffer,
+      this.buffer.byteOffset + index4,
+      this.buffer.byteLength - index4
+    );
+    return new _BitArray(buffer);
   }
 };
 function byteArrayToInt(byteArray, start3, end, isBigEndian, isSigned) {
@@ -209,9 +219,9 @@ function isEqual(x, y) {
       } catch {
       }
     }
-    let [keys2, get2] = getters(a);
+    let [keys2, get] = getters(a);
     for (let k of keys2(a)) {
-      values2.push(get2(a, k), get2(b, k));
+      values2.push(get(a, k), get(b, k));
     }
   }
   return true;
@@ -307,57 +317,12 @@ function from_result(result) {
     return new None();
   }
 }
-function unwrap(option, default$) {
-  if (option instanceof Some) {
-    let x = option[0];
-    return x;
+function or(first3, second) {
+  if (first3 instanceof Some) {
+    return first3;
   } else {
-    return default$;
+    return second;
   }
-}
-function map(option, fun) {
-  if (option instanceof Some) {
-    let x = option[0];
-    return new Some(fun(x));
-  } else {
-    return new None();
-  }
-}
-function or(first4, second2) {
-  if (first4 instanceof Some) {
-    return first4;
-  } else {
-    return second2;
-  }
-}
-
-// build/dev/javascript/gleam_stdlib/gleam/regex.mjs
-var Match = class extends CustomType {
-  constructor(content, submatches) {
-    super();
-    this.content = content;
-    this.submatches = submatches;
-  }
-};
-var CompileError = class extends CustomType {
-  constructor(error, byte_index) {
-    super();
-    this.error = error;
-    this.byte_index = byte_index;
-  }
-};
-var Options = class extends CustomType {
-  constructor(case_insensitive, multi_line) {
-    super();
-    this.case_insensitive = case_insensitive;
-    this.multi_line = multi_line;
-  }
-};
-function compile(pattern, options) {
-  return compile_regex(pattern, options);
-}
-function scan(regex, string4) {
-  return regex_scan(regex, string4);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/order.mjs
@@ -369,13 +334,10 @@ var Gt = class extends CustomType {
 };
 
 // build/dev/javascript/gleam_stdlib/gleam/float.mjs
-function floor2(x) {
-  return floor(x);
-}
 function negate(x) {
   return -1 * x;
 }
-function do_round(x) {
+function round2(x) {
   let $ = x >= 0;
   if ($) {
     return round(x);
@@ -383,33 +345,15 @@ function do_round(x) {
     return 0 - round(negate(x));
   }
 }
-function round2(x) {
-  return do_round(x);
-}
 
 // build/dev/javascript/gleam_stdlib/gleam/int.mjs
-function parse(string4) {
-  return parse_int(string4);
-}
-function to_string2(x) {
-  return to_string(x);
-}
 function to_base16(x) {
   return int_to_base_string(x, 16);
 }
-function to_float(x) {
-  return identity(x);
-}
 function random(max) {
-  let _pipe = random_uniform() * to_float(max);
-  let _pipe$1 = floor2(_pipe);
+  let _pipe = random_uniform() * identity(max);
+  let _pipe$1 = floor(_pipe);
   return round2(_pipe$1);
-}
-
-// build/dev/javascript/gleam_stdlib/gleam/pair.mjs
-function second(pair) {
-  let a = pair[1];
-  return a;
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/list.mjs
@@ -419,10 +363,10 @@ var Descending = class extends CustomType {
 };
 function length_loop(loop$list, loop$count) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let count = loop$count;
-    if (list4.atLeastLength(1)) {
-      let list$1 = list4.tail;
+    if (list5.atLeastLength(1)) {
+      let list$1 = list5.tail;
       loop$list = list$1;
       loop$count = count + 1;
     } else {
@@ -430,8 +374,8 @@ function length_loop(loop$list, loop$count) {
     }
   }
 }
-function length(list4) {
-  return length_loop(list4, 0);
+function length(list5) {
+  return length_loop(list5, 0);
 }
 function reverse_loop(loop$remaining, loop$accumulator) {
   while (true) {
@@ -447,50 +391,42 @@ function reverse_loop(loop$remaining, loop$accumulator) {
     }
   }
 }
-function reverse(list4) {
-  return reverse_loop(list4, toList([]));
-}
-function first(list4) {
-  if (list4.hasLength(0)) {
-    return new Error(void 0);
-  } else {
-    let x = list4.head;
-    return new Ok(x);
-  }
+function reverse(list5) {
+  return reverse_loop(list5, toList([]));
 }
 function map_loop(loop$list, loop$fun, loop$acc) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let fun = loop$fun;
     let acc = loop$acc;
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       return reverse(acc);
     } else {
-      let first$1 = list4.head;
-      let rest$1 = list4.tail;
+      let first$1 = list5.head;
+      let rest$1 = list5.tail;
       loop$list = rest$1;
       loop$fun = fun;
       loop$acc = prepend(fun(first$1), acc);
     }
   }
 }
-function map2(list4, fun) {
-  return map_loop(list4, fun, toList([]));
+function map(list5, fun) {
+  return map_loop(list5, fun, toList([]));
 }
 function take_loop(loop$list, loop$n, loop$acc) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let n = loop$n;
     let acc = loop$acc;
     let $ = n <= 0;
     if ($) {
       return reverse(acc);
     } else {
-      if (list4.hasLength(0)) {
+      if (list5.hasLength(0)) {
         return reverse(acc);
       } else {
-        let first$1 = list4.head;
-        let rest$1 = list4.tail;
+        let first$1 = list5.head;
+        let rest$1 = list5.tail;
         loop$list = rest$1;
         loop$n = n - 1;
         loop$acc = prepend(first$1, acc);
@@ -498,36 +434,36 @@ function take_loop(loop$list, loop$n, loop$acc) {
     }
   }
 }
-function take(list4, n) {
-  return take_loop(list4, n, toList([]));
+function take(list5, n) {
+  return take_loop(list5, n, toList([]));
 }
 function append_loop(loop$first, loop$second) {
   while (true) {
-    let first4 = loop$first;
-    let second2 = loop$second;
-    if (first4.hasLength(0)) {
-      return second2;
+    let first3 = loop$first;
+    let second = loop$second;
+    if (first3.hasLength(0)) {
+      return second;
     } else {
-      let item = first4.head;
-      let rest$1 = first4.tail;
+      let item = first3.head;
+      let rest$1 = first3.tail;
       loop$first = rest$1;
-      loop$second = prepend(item, second2);
+      loop$second = prepend(item, second);
     }
   }
 }
-function append(first4, second2) {
-  return append_loop(reverse(first4), second2);
+function append(first3, second) {
+  return append_loop(reverse(first3), second);
 }
 function fold(loop$list, loop$initial, loop$fun) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let initial = loop$initial;
     let fun = loop$fun;
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       return initial;
     } else {
-      let x = list4.head;
-      let rest$1 = list4.tail;
+      let x = list5.head;
+      let rest$1 = list5.tail;
       loop$list = rest$1;
       loop$initial = fun(initial, x);
       loop$fun = fun;
@@ -552,27 +488,27 @@ function index_fold_loop(loop$over, loop$acc, loop$with, loop$index) {
     }
   }
 }
-function index_fold(list4, initial, fun) {
-  return index_fold_loop(list4, initial, fun, 0);
+function index_fold(list5, initial, fun) {
+  return index_fold_loop(list5, initial, fun, 0);
 }
 function sequences(loop$list, loop$compare, loop$growing, loop$direction, loop$prev, loop$acc) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let compare4 = loop$compare;
     let growing = loop$growing;
     let direction = loop$direction;
     let prev = loop$prev;
     let acc = loop$acc;
     let growing$1 = prepend(prev, growing);
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       if (direction instanceof Ascending) {
         return prepend(reverse_loop(growing$1, toList([])), acc);
       } else {
         return prepend(growing$1, acc);
       }
     } else {
-      let new$1 = list4.head;
-      let rest$1 = list4.tail;
+      let new$1 = list5.head;
+      let rest$1 = list5.tail;
       let $ = compare4(prev, new$1);
       if ($ instanceof Gt && direction instanceof Descending) {
         loop$list = rest$1;
@@ -696,11 +632,11 @@ function merge_ascendings(loop$list1, loop$list2, loop$compare, loop$acc) {
     let compare4 = loop$compare;
     let acc = loop$acc;
     if (list1.hasLength(0)) {
-      let list4 = list22;
-      return reverse_loop(list4, acc);
+      let list5 = list22;
+      return reverse_loop(list5, acc);
     } else if (list22.hasLength(0)) {
-      let list4 = list1;
-      return reverse_loop(list4, acc);
+      let list5 = list1;
+      return reverse_loop(list5, acc);
     } else {
       let first1 = list1.head;
       let rest1 = list1.tail;
@@ -762,11 +698,11 @@ function merge_descendings(loop$list1, loop$list2, loop$compare, loop$acc) {
     let compare4 = loop$compare;
     let acc = loop$acc;
     if (list1.hasLength(0)) {
-      let list4 = list22;
-      return reverse_loop(list4, acc);
+      let list5 = list22;
+      return reverse_loop(list5, acc);
     } else if (list22.hasLength(0)) {
-      let list4 = list1;
-      return reverse_loop(list4, acc);
+      let list5 = list1;
+      return reverse_loop(list5, acc);
     } else {
       let first1 = list1.head;
       let rest1 = list1.tail;
@@ -847,16 +783,16 @@ function merge_all(loop$sequences, loop$direction, loop$compare) {
     }
   }
 }
-function sort(list4, compare4) {
-  if (list4.hasLength(0)) {
+function sort(list5, compare4) {
+  if (list5.hasLength(0)) {
     return toList([]);
-  } else if (list4.hasLength(1)) {
-    let x = list4.head;
+  } else if (list5.hasLength(1)) {
+    let x = list5.head;
     return toList([x]);
   } else {
-    let x = list4.head;
-    let y = list4.tail.head;
-    let rest$1 = list4.tail.tail;
+    let x = list5.head;
+    let y = list5.tail.head;
+    let rest$1 = list5.tail.tail;
     let direction = (() => {
       let $ = compare4(x, y);
       if ($ instanceof Lt) {
@@ -878,146 +814,109 @@ function sort(list4, compare4) {
     return merge_all(sequences$1, new Ascending(), compare4);
   }
 }
-function repeat_loop(loop$item, loop$times, loop$acc) {
-  while (true) {
-    let item = loop$item;
-    let times = loop$times;
-    let acc = loop$acc;
-    let $ = times <= 0;
-    if ($) {
-      return acc;
-    } else {
-      loop$item = item;
-      loop$times = times - 1;
-      loop$acc = prepend(item, acc);
-    }
-  }
-}
-function repeat(a, times) {
-  return repeat_loop(a, times, toList([]));
-}
-
-// build/dev/javascript/gleam_stdlib/gleam/string_tree.mjs
-function from_strings(strings) {
-  return concat(strings);
-}
-function from_string(string4) {
-  return identity(string4);
-}
-function to_string3(tree) {
-  return identity(tree);
-}
-function split2(tree, pattern) {
-  return split(tree, pattern);
-}
 
 // build/dev/javascript/gleam_stdlib/gleam/string.mjs
 function is_empty(str) {
   return str === "";
 }
-function length3(string4) {
-  return string_length(string4);
-}
-function lowercase2(string4) {
-  return lowercase(string4);
-}
-function slice(string4, idx, len) {
+function slice(string3, idx, len) {
   let $ = len < 0;
   if ($) {
     return "";
   } else {
     let $1 = idx < 0;
     if ($1) {
-      let translated_idx = length3(string4) + idx;
+      let translated_idx = string_length(string3) + idx;
       let $2 = translated_idx < 0;
       if ($2) {
         return "";
       } else {
-        return string_slice(string4, translated_idx, len);
+        return string_slice(string3, translated_idx, len);
       }
     } else {
-      return string_slice(string4, idx, len);
+      return string_slice(string3, idx, len);
     }
   }
 }
-function drop_start(string4, num_graphemes) {
-  let $ = num_graphemes < 0;
-  if ($) {
-    return string4;
-  } else {
-    return slice(string4, num_graphemes, length3(string4) - num_graphemes);
-  }
-}
-function drop_left(string4, num_graphemes) {
-  return drop_start(string4, num_graphemes);
-}
-function starts_with2(string4, prefix) {
-  return starts_with(string4, prefix);
-}
 function concat2(strings) {
   let _pipe = strings;
-  let _pipe$1 = from_strings(_pipe);
-  return to_string3(_pipe$1);
+  let _pipe$1 = concat(_pipe);
+  return identity(_pipe$1);
 }
-function repeat_loop2(loop$string, loop$times, loop$acc) {
+function repeat_loop(loop$string, loop$times, loop$acc) {
   while (true) {
-    let string4 = loop$string;
+    let string3 = loop$string;
     let times = loop$times;
     let acc = loop$acc;
     let $ = times <= 0;
     if ($) {
       return acc;
     } else {
-      loop$string = string4;
+      loop$string = string3;
       loop$times = times - 1;
-      loop$acc = acc + string4;
+      loop$acc = acc + string3;
     }
   }
 }
-function repeat2(string4, times) {
-  return repeat_loop2(string4, times, "");
-}
-function join2(strings, separator) {
-  return join(strings, separator);
+function repeat(string3, times) {
+  return repeat_loop(string3, times, "");
 }
 function padding(size, pad_string) {
-  let pad_string_length = length3(pad_string);
+  let pad_string_length = string_length(pad_string);
   let num_pads = divideInt(size, pad_string_length);
   let extra = remainderInt(size, pad_string_length);
-  return repeat2(pad_string, num_pads) + slice(pad_string, 0, extra);
+  return repeat(pad_string, num_pads) + slice(pad_string, 0, extra);
 }
-function pad_start(string4, desired_length, pad_string) {
-  let current_length = length3(string4);
+function pad_start(string3, desired_length, pad_string) {
+  let current_length = string_length(string3);
   let to_pad_length = desired_length - current_length;
   let $ = to_pad_length <= 0;
   if ($) {
-    return string4;
+    return string3;
   } else {
-    return padding(to_pad_length, pad_string) + string4;
+    return padding(to_pad_length, pad_string) + string3;
   }
 }
-function pad_left(string4, desired_length, pad_string) {
-  return pad_start(string4, desired_length, pad_string);
+function pad_left(string3, desired_length, pad_string) {
+  return pad_start(string3, desired_length, pad_string);
 }
-function trim2(string4) {
-  return trim(string4);
+function trim(string3) {
+  let _pipe = string3;
+  let _pipe$1 = trim_start(_pipe);
+  return trim_end(_pipe$1);
 }
-function pop_grapheme2(string4) {
-  return pop_grapheme(string4);
+function drop_start(loop$string, loop$num_graphemes) {
+  while (true) {
+    let string3 = loop$string;
+    let num_graphemes = loop$num_graphemes;
+    let $ = num_graphemes > 0;
+    if (!$) {
+      return string3;
+    } else {
+      let $1 = pop_grapheme(string3);
+      if ($1.isOk()) {
+        let string$1 = $1[0][1];
+        loop$string = string$1;
+        loop$num_graphemes = num_graphemes - 1;
+      } else {
+        return string3;
+      }
+    }
+  }
 }
-function split3(x, substring) {
+function split2(x, substring) {
   if (substring === "") {
     return graphemes(x);
   } else {
     let _pipe = x;
-    let _pipe$1 = from_string(_pipe);
-    let _pipe$2 = split2(_pipe$1, substring);
-    return map2(_pipe$2, to_string3);
+    let _pipe$1 = identity(_pipe);
+    let _pipe$2 = split(_pipe$1, substring);
+    return map(_pipe$2, identity);
   }
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/result.mjs
-function map3(result, fun) {
+function map2(result, fun) {
   if (result.isOk()) {
     let x = result[0];
     return new Ok(fun(x));
@@ -1047,20 +946,12 @@ function try$(result, fun) {
 function then$(result, fun) {
   return try$(result, fun);
 }
-function unwrap2(result, default$) {
+function unwrap(result, default$) {
   if (result.isOk()) {
     let v = result[0];
     return v;
   } else {
     return default$;
-  }
-}
-function replace_error(result, error) {
-  if (result.isOk()) {
-    let x = result[0];
-    return new Ok(x);
-  } else {
-    return new Error(error);
   }
 }
 
@@ -1073,9 +964,6 @@ var DecodeError = class extends CustomType {
     this.path = path;
   }
 };
-function classify(data) {
-  return classify_dynamic(data);
-}
 function int(data) {
   return decode_int(data);
 }
@@ -1083,7 +971,7 @@ function any(decoders) {
   return (data) => {
     if (decoders.hasLength(0)) {
       return new Error(
-        toList([new DecodeError("another type", classify(data), toList([]))])
+        toList([new DecodeError("another type", classify_dynamic(data), toList([]))])
       );
     } else {
       let decoder = decoders.head;
@@ -1101,8 +989,8 @@ function any(decoders) {
 function push_path(error, name) {
   let name$1 = identity(name);
   let decoder = any(
-    toList([string, (x) => {
-      return map3(int(x), to_string2);
+    toList([decode_string, (x) => {
+      return map2(int(x), to_string);
     }])
   );
   let name$2 = (() => {
@@ -1111,23 +999,25 @@ function push_path(error, name) {
       let name$22 = $[0];
       return name$22;
     } else {
-      let _pipe = toList(["<", classify(name$1), ">"]);
-      let _pipe$1 = from_strings(_pipe);
-      return to_string3(_pipe$1);
+      let _pipe = toList(["<", classify_dynamic(name$1), ">"]);
+      let _pipe$1 = concat(_pipe);
+      return identity(_pipe$1);
     }
   })();
-  return error.withFields({ path: prepend(name$2, error.path) });
+  let _record = error;
+  return new DecodeError(
+    _record.expected,
+    _record.found,
+    prepend(name$2, error.path)
+  );
 }
 function map_errors(result, f) {
   return map_error(
     result,
     (_capture) => {
-      return map2(_capture, f);
+      return map(_capture, f);
     }
   );
-}
-function string(data) {
-  return decode_string(data);
 }
 function field(name, inner_type) {
   return (value4) => {
@@ -1838,13 +1728,22 @@ var Dict = class _Dict {
     if (!(o instanceof _Dict) || this.size !== o.size) {
       return false;
     }
-    let equal = true;
-    this.forEach((v, k) => {
-      equal = equal && isEqual(o.get(k, !v), v);
-    });
-    return equal;
+    try {
+      this.forEach((v, k) => {
+        if (!isEqual(o.get(k, !v), v)) {
+          throw unequalDictSymbol;
+        }
+      });
+      return true;
+    } catch (e) {
+      if (e === unequalDictSymbol) {
+        return false;
+      }
+      throw e;
+    }
   }
 };
+var unequalDictSymbol = Symbol();
 
 // build/dev/javascript/gleam_stdlib/gleam_stdlib.mjs
 var Nil = void 0;
@@ -1852,24 +1751,17 @@ var NOT_FOUND = {};
 function identity(x) {
   return x;
 }
-function parse_int(value4) {
-  if (/^[-+]?(\d+)$/.test(value4)) {
-    return new Ok(parseInt(value4));
-  } else {
-    return new Error(Nil);
-  }
-}
 function to_string(term) {
   return term.toString();
 }
 function int_to_base_string(int4, base) {
   return int4.toString(base).toUpperCase();
 }
-function string_length(string4) {
-  if (string4 === "") {
+function string_length(string3) {
+  if (string3 === "") {
     return 0;
   }
-  const iterator = graphemes_iterator(string4);
+  const iterator = graphemes_iterator(string3);
   if (iterator) {
     let i = 0;
     for (const _ of iterator) {
@@ -1877,40 +1769,43 @@ function string_length(string4) {
     }
     return i;
   } else {
-    return string4.match(/./gsu).length;
+    return string3.match(/./gsu).length;
   }
 }
-function graphemes(string4) {
-  const iterator = graphemes_iterator(string4);
+function graphemes(string3) {
+  const iterator = graphemes_iterator(string3);
   if (iterator) {
     return List.fromArray(Array.from(iterator).map((item) => item.segment));
   } else {
-    return List.fromArray(string4.match(/./gsu));
+    return List.fromArray(string3.match(/./gsu));
   }
 }
 var segmenter = void 0;
-function graphemes_iterator(string4) {
+function graphemes_iterator(string3) {
   if (globalThis.Intl && Intl.Segmenter) {
     segmenter ||= new Intl.Segmenter();
-    return segmenter.segment(string4)[Symbol.iterator]();
+    return segmenter.segment(string3)[Symbol.iterator]();
   }
 }
-function pop_grapheme(string4) {
-  let first4;
-  const iterator = graphemes_iterator(string4);
+function pop_grapheme(string3) {
+  let first3;
+  const iterator = graphemes_iterator(string3);
   if (iterator) {
-    first4 = iterator.next().value?.segment;
+    first3 = iterator.next().value?.segment;
   } else {
-    first4 = string4.match(/./su)?.[0];
+    first3 = string3.match(/./su)?.[0];
   }
-  if (first4) {
-    return new Ok([first4, string4.slice(first4.length)]);
+  if (first3) {
+    return new Ok([first3, string3.slice(first3.length)]);
   } else {
     return new Error(Nil);
   }
 }
-function lowercase(string4) {
-  return string4.toLowerCase();
+function pop_codeunit(str) {
+  return [str.charCodeAt(0) | 0, str.slice(1)];
+}
+function lowercase(string3) {
+  return string3.toLowerCase();
 }
 function split(xs, pattern) {
   return List.fromArray(xs.split(pattern));
@@ -1932,11 +1827,11 @@ function concat(xs) {
   }
   return result;
 }
-function string_slice(string4, idx, len) {
-  if (len <= 0 || idx >= string4.length) {
+function string_slice(string3, idx, len) {
+  if (len <= 0 || idx >= string3.length) {
     return "";
   }
-  const iterator = graphemes_iterator(string4);
+  const iterator = graphemes_iterator(string3);
   if (iterator) {
     while (idx-- > 0) {
       iterator.next();
@@ -1951,8 +1846,11 @@ function string_slice(string4, idx, len) {
     }
     return result;
   } else {
-    return string4.match(/./gsu).slice(idx, idx + len).join("");
+    return string3.match(/./gsu).slice(idx, idx + len).join("");
   }
+}
+function string_codeunit_slice(str, from2, length4) {
+  return str.slice(from2, from2 + length4);
 }
 function starts_with(haystack, needle) {
   return haystack.startsWith(needle);
@@ -1977,16 +1875,13 @@ var unicode_whitespaces = [
   "\u2029"
   // Paragraph separator
 ].join("");
-var left_trim_regex = new RegExp(`^([${unicode_whitespaces}]*)`, "g");
-var right_trim_regex = new RegExp(`([${unicode_whitespaces}]*)$`, "g");
-function trim(string4) {
-  return trim_start(trim_end(string4));
+var trim_start_regex = new RegExp(`^[${unicode_whitespaces}]*`);
+var trim_end_regex = new RegExp(`[${unicode_whitespaces}]*$`);
+function trim_start(string3) {
+  return string3.replace(trim_start_regex, "");
 }
-function trim_start(string4) {
-  return string4.replace(left_trim_regex, "");
-}
-function trim_end(string4) {
-  return string4.replace(right_trim_regex, "");
+function trim_end(string3) {
+  return string3.replace(trim_end_regex, "");
 }
 function floor(float3) {
   return Math.floor(float3);
@@ -2000,36 +1895,6 @@ function random_uniform() {
     return random_uniform();
   }
   return random_uniform_result;
-}
-function compile_regex(pattern, options) {
-  try {
-    let flags = "gu";
-    if (options.case_insensitive)
-      flags += "i";
-    if (options.multi_line)
-      flags += "m";
-    return new Ok(new RegExp(pattern, flags));
-  } catch (error) {
-    const number = (error.columnNumber || 0) | 0;
-    return new Error(new CompileError(error.message, number));
-  }
-}
-function regex_scan(regex, string4) {
-  const matches = Array.from(string4.matchAll(regex)).map((match) => {
-    const content = match[0];
-    const submatches = [];
-    for (let n = match.length - 1; n > 0; n--) {
-      if (match[n]) {
-        submatches[n - 1] = new Some(match[n]);
-        continue;
-      }
-      if (submatches.length > 0) {
-        submatches[n - 1] = new None();
-      }
-    }
-    return new Match(content, List.fromArray(submatches));
-  });
-  return List.fromArray(matches);
 }
 function new_map() {
   return Dict.new();
@@ -2123,28 +1988,25 @@ function bitwise_shift_left(x, y) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/dict.mjs
-function new$() {
-  return new_map();
-}
-function insert(dict2, key2, value4) {
-  return map_insert(key2, value4, dict2);
+function insert(dict3, key2, value4) {
+  return map_insert(key2, value4, dict3);
 }
 function from_list_loop(loop$list, loop$initial) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let initial = loop$initial;
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       return initial;
     } else {
-      let x = list4.head;
-      let rest = list4.tail;
+      let x = list5.head;
+      let rest = list5.tail;
       loop$list = rest;
       loop$initial = insert(initial, x[0], x[1]);
     }
   }
 }
-function from_list(list4) {
-  return from_list_loop(list4, new$());
+function from_list(list5) {
+  return from_list_loop(list5, new_map());
 }
 function reverse_and_concat(loop$remaining, loop$accumulator) {
   while (true) {
@@ -2162,70 +2024,61 @@ function reverse_and_concat(loop$remaining, loop$accumulator) {
 }
 function do_keys_loop(loop$list, loop$acc) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let acc = loop$acc;
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       return reverse_and_concat(acc, toList([]));
     } else {
-      let first4 = list4.head;
-      let rest = list4.tail;
+      let first3 = list5.head;
+      let rest = list5.tail;
       loop$list = rest;
-      loop$acc = prepend(first4[0], acc);
+      loop$acc = prepend(first3[0], acc);
     }
   }
 }
-function do_keys(dict2) {
-  let list_of_pairs = map_to_list(dict2);
+function keys(dict3) {
+  let list_of_pairs = map_to_list(dict3);
   return do_keys_loop(list_of_pairs, toList([]));
-}
-function keys(dict2) {
-  return do_keys(dict2);
 }
 function do_values_loop(loop$list, loop$acc) {
   while (true) {
-    let list4 = loop$list;
+    let list5 = loop$list;
     let acc = loop$acc;
-    if (list4.hasLength(0)) {
+    if (list5.hasLength(0)) {
       return reverse_and_concat(acc, toList([]));
     } else {
-      let first4 = list4.head;
-      let rest = list4.tail;
+      let first3 = list5.head;
+      let rest = list5.tail;
       loop$list = rest;
-      loop$acc = prepend(first4[1], acc);
+      loop$acc = prepend(first3[1], acc);
     }
   }
 }
-function do_values(dict2) {
-  let list_of_pairs = map_to_list(dict2);
+function values(dict3) {
+  let list_of_pairs = map_to_list(dict3);
   return do_values_loop(list_of_pairs, toList([]));
 }
-function values(dict2) {
-  return do_values(dict2);
-}
-function insert_pair(dict2, pair) {
-  return insert(dict2, pair[0], pair[1]);
+function insert_pair(dict3, pair) {
+  return insert(dict3, pair[0], pair[1]);
 }
 function fold_inserts(loop$new_entries, loop$dict) {
   while (true) {
     let new_entries = loop$new_entries;
-    let dict2 = loop$dict;
+    let dict3 = loop$dict;
     if (new_entries.hasLength(0)) {
-      return dict2;
+      return dict3;
     } else {
-      let first4 = new_entries.head;
+      let first3 = new_entries.head;
       let rest = new_entries.tail;
       loop$new_entries = rest;
-      loop$dict = insert_pair(dict2, first4);
+      loop$dict = insert_pair(dict3, first3);
     }
   }
 }
-function do_merge(dict2, new_entries) {
+function merge(dict3, new_entries) {
   let _pipe = new_entries;
   let _pipe$1 = map_to_list(_pipe);
-  return fold_inserts(_pipe$1, dict2);
-}
-function merge(dict2, new_entries) {
-  return do_merge(dict2, new_entries);
+  return fold_inserts(_pipe$1, dict3);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
@@ -2247,18 +2100,18 @@ function object(entries) {
 function identity2(x) {
   return x;
 }
-function array(list4) {
-  return list4.toArray();
+function array(list5) {
+  return list5.toArray();
 }
 function do_null() {
   return null;
 }
-function decode(string4) {
+function decode(string3) {
   try {
-    const result = JSON.parse(string4);
+    const result = JSON.parse(string3);
     return new Ok(result);
   } catch (err) {
-    return new Error(getJsonDecodeError(err, string4));
+    return new Error(getJsonDecodeError(err, string3));
   }
 }
 function getJsonDecodeError(stdErr, json) {
@@ -2323,12 +2176,12 @@ function jsCoreUnexpectedByteError(err) {
 function toHex(char) {
   return "0x" + char.charCodeAt(0).toString(16).toUpperCase();
 }
-function getPositionFromMultiline(line, column, string4) {
+function getPositionFromMultiline(line, column, string3) {
   if (line === 1)
     return column - 1;
   let currentLn = 1;
   let position = 0;
-  string4.split("").find((char, idx) => {
+  string3.split("").find((char, idx) => {
     if (char === "\n")
       currentLn += 1;
     if (currentLn === line) {
@@ -2372,10 +2225,10 @@ function do_decode(json, decoder) {
 function decode2(json, decoder) {
   return do_decode(json, decoder);
 }
-function to_string5(json) {
+function to_string2(json) {
   return json_to_string(json);
 }
-function string2(input2) {
+function string(input2) {
   return identity2(input2);
 }
 function int2(input2) {
@@ -2398,11 +2251,11 @@ var Effect = class extends CustomType {
     this.all = all;
   }
 };
-function custom(run2) {
+function custom(run3) {
   return new Effect(
     toList([
       (actions) => {
-        return run2(actions.dispatch, actions.emit, actions.select, actions.root);
+        return run3(actions.dispatch, actions.emit, actions.select, actions.root);
       }
     ])
   );
@@ -2474,7 +2327,7 @@ function attribute_to_event_handler(attribute3) {
   } else {
     let name = attribute3[0];
     let handler = attribute3[1];
-    let name$1 = drop_left(name, 2);
+    let name$1 = drop_start(name, 2);
     return new Ok([name$1, handler]);
   }
 }
@@ -2483,7 +2336,7 @@ function do_element_list_handlers(elements2, handlers2, key2) {
     elements2,
     handlers2,
     (handlers3, element3, index4) => {
-      let key$1 = key2 + "-" + to_string2(index4);
+      let key$1 = key2 + "-" + to_string(index4);
       return do_handlers(element3, handlers3, key$1);
     }
   );
@@ -2522,7 +2375,7 @@ function do_handlers(loop$element, loop$handlers, loop$key) {
   }
 }
 function handlers(element3) {
-  return do_handlers(element3, new$(), "0");
+  return do_handlers(element3, new_map(), "0");
 }
 
 // build/dev/javascript/lustre/lustre/attribute.mjs
@@ -2595,7 +2448,7 @@ function do_keyed(el, key2) {
 }
 function keyed(el, children3) {
   return el(
-    map2(
+    map(
       children3,
       (_use0) => {
         let key2 = _use0[0];
@@ -2611,13 +2464,13 @@ function text(content) {
 
 // build/dev/javascript/gleam_stdlib/gleam/set.mjs
 var Set2 = class extends CustomType {
-  constructor(dict2) {
+  constructor(dict3) {
     super();
-    this.dict = dict2;
+    this.dict = dict3;
   }
 };
-function new$3() {
-  return new Set2(new$());
+function new$2() {
+  return new Set2(new_map());
 }
 
 // build/dev/javascript/lustre/lustre/internals/patch.mjs
@@ -2642,10 +2495,10 @@ var Init = class extends CustomType {
   }
 };
 function is_empty_element_diff(diff2) {
-  return isEqual(diff2.created, new$()) && isEqual(
+  return isEqual(diff2.created, new_map()) && isEqual(
     diff2.removed,
-    new$3()
-  ) && isEqual(diff2.updated, new$());
+    new$2()
+  ) && isEqual(diff2.updated, new_map());
 }
 
 // build/dev/javascript/lustre/lustre/internals/runtime.mjs
@@ -2711,8 +2564,8 @@ var ForceModel = class extends CustomType {
 };
 
 // build/dev/javascript/lustre/vdom.ffi.mjs
-if (window && window.customElements) {
-  window.customElements.define(
+if (globalThis.customElements && !globalThis.customElements.get("lustre-fragment")) {
+  globalThis.customElements.define(
     "lustre-fragment",
     class LustreFragment extends HTMLElement {
       constructor() {
@@ -2807,6 +2660,10 @@ function createElementNode({ prev, next, dispatch, stack }) {
       }
       handlersForEl.set(eventName, callback);
       el.setAttribute(name, value4);
+      if (canMorph) {
+        prevHandlers.delete(eventName);
+        prevAttributes.delete(name);
+      }
     } else if (name.startsWith("delegate:data-") || name.startsWith("delegate:aria-")) {
       el.setAttribute(name, value4);
       delegated.push([name.slice(10), value4]);
@@ -3108,12 +2965,10 @@ var LustreClientApplication = class _LustreClientApplication {
   #tickScheduled;
   /**
    * @param {Lustre.Effect<Msg>[]} effects
-   * @param {boolean} isFirstRender
    */
-  #tick(effects = [], isFirstRender = false) {
+  #tick(effects = []) {
     this.#tickScheduled = void 0;
-    if (!this.#flush(effects, isFirstRender))
-      return;
+    this.#flush(effects);
     const vdom = this.#view(this.#model);
     const dispatch = (handler, immediate = false) => (event2) => {
       const result = handler(event2);
@@ -3124,11 +2979,10 @@ var LustreClientApplication = class _LustreClientApplication {
     const prev = this.root.firstChild ?? this.root.appendChild(document.createTextNode(""));
     morph(prev, vdom, dispatch);
   }
-  #flush(effects = [], didUpdate = false) {
+  #flush(effects = []) {
     while (this.#queue.length > 0) {
       const msg = this.#queue.shift();
       const [next, effect] = this.#update(this.#model, msg);
-      didUpdate ||= this.#model !== next;
       effects = effects.concat(effect.all.toArray());
       this.#model = next;
     }
@@ -3148,9 +3002,7 @@ var LustreClientApplication = class _LustreClientApplication {
       effect({ dispatch, emit: emit2, select, root });
     }
     if (this.#queue.length > 0) {
-      return this.#flush(effects, didUpdate);
-    } else {
-      return didUpdate;
+      this.#flush(effects);
     }
   }
 };
@@ -3226,8 +3078,7 @@ var LustreServerApplication = class _LustreServerApplication {
   #handlers;
   #onAttributeChange;
   #tick(effects = []) {
-    if (!this.#flush(false, effects))
-      return;
+    this.#flush(effects);
     const vdom = this.#view(this.#model);
     const diff2 = elements(this.#html, vdom);
     if (!is_empty_element_diff(diff2)) {
@@ -3239,11 +3090,10 @@ var LustreServerApplication = class _LustreServerApplication {
     this.#html = vdom;
     this.#handlers = diff2.handlers;
   }
-  #flush(didUpdate = false, effects = []) {
+  #flush(effects = []) {
     while (this.#queue.length > 0) {
       const msg = this.#queue.shift();
       const [next, effect] = this.#update(this.#model, msg);
-      didUpdate ||= this.#model !== next;
       effects = effects.concat(effect.all.toArray());
       this.#model = next;
     }
@@ -3263,9 +3113,7 @@ var LustreServerApplication = class _LustreServerApplication {
       effect({ dispatch, emit: emit2, select, root });
     }
     if (this.#queue.length > 0) {
-      return this.#flush(didUpdate, effects);
-    } else {
-      return didUpdate;
+      this.#flush(effects);
     }
   }
 };
@@ -3475,7 +3323,7 @@ function on_submit(scaffold, msg) {
 }
 function value3(event2) {
   let _pipe = event2;
-  return field("target", field("value", string))(
+  return field("target", field("value", decode_string))(
     _pipe
   );
 }
@@ -3485,7 +3333,7 @@ function on_input(scaffold, msg) {
     "input",
     (event2) => {
       let _pipe = value3(event2);
-      return map3(_pipe, msg);
+      return map2(_pipe, msg);
     }
   );
 }
@@ -3512,153 +3360,745 @@ var Uri = class extends CustomType {
     this.fragment = fragment;
   }
 };
-function regex_submatches(pattern, string4) {
-  let _pipe = pattern;
-  let _pipe$1 = compile(_pipe, new Options(true, false));
-  let _pipe$2 = replace_error(_pipe$1, void 0);
-  let _pipe$3 = map3(
-    _pipe$2,
-    (_capture) => {
-      return scan(_capture, string4);
-    }
-  );
-  let _pipe$4 = try$(_pipe$3, first);
-  let _pipe$5 = map3(_pipe$4, (m) => {
-    return m.submatches;
-  });
-  return unwrap2(_pipe$5, toList([]));
+function is_valid_host_within_brackets_char(char) {
+  return 48 >= char && char <= 57 || 65 >= char && char <= 90 || 97 >= char && char <= 122 || char === 58 || char === 46;
 }
-function noneify_query(x) {
-  if (x instanceof None) {
-    return new None();
-  } else {
-    let x$1 = x[0];
-    let $ = pop_grapheme2(x$1);
-    if ($.isOk() && $[0][0] === "?") {
-      let query = $[0][1];
-      return new Some(query);
-    } else {
-      return new None();
-    }
-  }
-}
-function noneify_empty_string(x) {
-  if (x instanceof Some && x[0] === "") {
-    return new None();
-  } else if (x instanceof None) {
-    return new None();
-  } else {
-    return x;
-  }
-}
-function extra_required(loop$list, loop$remaining) {
-  while (true) {
-    let list4 = loop$list;
-    let remaining = loop$remaining;
-    if (remaining === 0) {
-      return 0;
-    } else if (list4.hasLength(0)) {
-      return remaining;
-    } else {
-      let rest = list4.tail;
-      loop$list = rest;
-      loop$remaining = remaining - 1;
-    }
-  }
-}
-function pad_list(list4, size) {
-  let _pipe = list4;
-  return append(
-    _pipe,
-    repeat(new None(), extra_required(list4, size))
-  );
-}
-function split_authority(authority) {
-  let $ = unwrap(authority, "");
-  if ($ === "") {
-    return [new None(), new None(), new None()];
-  } else if ($ === "//") {
-    return [new None(), new Some(""), new None()];
-  } else {
-    let authority$1 = $;
-    let matches = (() => {
-      let _pipe = "^(//)?((.*)@)?(\\[[a-zA-Z0-9:.]*\\]|[^:]*)(:(\\d*))?";
-      let _pipe$1 = regex_submatches(_pipe, authority$1);
-      return pad_list(_pipe$1, 6);
-    })();
-    if (matches.hasLength(6)) {
-      let userinfo = matches.tail.tail.head;
-      let host = matches.tail.tail.tail.head;
-      let port = matches.tail.tail.tail.tail.tail.head;
-      let userinfo$1 = noneify_empty_string(userinfo);
-      let host$1 = noneify_empty_string(host);
-      let port$1 = (() => {
-        let _pipe = port;
-        let _pipe$1 = unwrap(_pipe, "");
-        let _pipe$2 = parse(_pipe$1);
-        return from_result(_pipe$2);
-      })();
-      return [userinfo$1, host$1, port$1];
-    } else {
-      return [new None(), new None(), new None()];
-    }
-  }
-}
-function do_parse(uri_string) {
-  let pattern = "^(([a-z][a-z0-9\\+\\-\\.]*):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#.*)?";
-  let matches = (() => {
-    let _pipe = pattern;
-    let _pipe$1 = regex_submatches(_pipe, uri_string);
-    return pad_list(_pipe$1, 8);
-  })();
-  let $ = (() => {
-    if (matches.hasLength(8)) {
-      let scheme2 = matches.tail.head;
-      let authority_with_slashes = matches.tail.tail.head;
-      let path2 = matches.tail.tail.tail.tail.head;
-      let query_with_question_mark = matches.tail.tail.tail.tail.tail.head;
-      let fragment2 = matches.tail.tail.tail.tail.tail.tail.tail.head;
-      return [
-        scheme2,
-        authority_with_slashes,
-        path2,
-        query_with_question_mark,
-        fragment2
-      ];
-    } else {
-      return [new None(), new None(), new None(), new None(), new None()];
-    }
-  })();
-  let scheme = $[0];
-  let authority = $[1];
-  let path = $[2];
-  let query = $[3];
-  let fragment = $[4];
-  let scheme$1 = noneify_empty_string(scheme);
-  let path$1 = unwrap(path, "");
-  let query$1 = noneify_query(query);
-  let $1 = split_authority(authority);
-  let userinfo = $1[0];
-  let host = $1[1];
-  let port = $1[2];
-  let fragment$1 = (() => {
-    let _pipe = fragment;
-    let _pipe$1 = to_result(_pipe, void 0);
-    let _pipe$2 = try$(_pipe$1, pop_grapheme2);
-    let _pipe$3 = map3(_pipe$2, second);
-    return from_result(_pipe$3);
-  })();
-  let scheme$2 = (() => {
-    let _pipe = scheme$1;
-    let _pipe$1 = noneify_empty_string(_pipe);
-    return map(_pipe$1, lowercase2);
-  })();
+function parse_fragment(rest, pieces) {
   return new Ok(
-    new Uri(scheme$2, userinfo, host, port, path$1, query$1, fragment$1)
+    (() => {
+      let _record = pieces;
+      return new Uri(
+        _record.scheme,
+        _record.userinfo,
+        _record.host,
+        _record.port,
+        _record.path,
+        _record.query,
+        new Some(rest)
+      );
+    })()
   );
 }
-function parse2(uri_string) {
-  return do_parse(uri_string);
+function parse_query_with_question_mark_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string.startsWith("#") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_fragment(rest, pieces);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let query = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          _record.path,
+          new Some(query),
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            _record.host,
+            _record.port,
+            _record.path,
+            new Some(original),
+            _record.fragment
+          );
+        })()
+      );
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let rest = $[1];
+      loop$original = original;
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$size = size + 1;
+    }
+  }
+}
+function parse_query_with_question_mark(uri_string, pieces) {
+  return parse_query_with_question_mark_loop(uri_string, uri_string, pieces, 0);
+}
+function parse_path_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string.startsWith("?")) {
+      let rest = uri_string.slice(1);
+      let path = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_query_with_question_mark(rest, pieces$1);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let path = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            _record.host,
+            _record.port,
+            original,
+            _record.query,
+            _record.fragment
+          );
+        })()
+      );
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let rest = $[1];
+      loop$original = original;
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$size = size + 1;
+    }
+  }
+}
+function parse_path(uri_string, pieces) {
+  return parse_path_loop(uri_string, uri_string, pieces, 0);
+}
+function parse_port_loop(loop$uri_string, loop$pieces, loop$port) {
+  while (true) {
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let port = loop$port;
+    if (uri_string.startsWith("0")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10;
+    } else if (uri_string.startsWith("1")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 1;
+    } else if (uri_string.startsWith("2")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 2;
+    } else if (uri_string.startsWith("3")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 3;
+    } else if (uri_string.startsWith("4")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 4;
+    } else if (uri_string.startsWith("5")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 5;
+    } else if (uri_string.startsWith("6")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 6;
+    } else if (uri_string.startsWith("7")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 7;
+    } else if (uri_string.startsWith("8")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 8;
+    } else if (uri_string.startsWith("9")) {
+      let rest = uri_string.slice(1);
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$port = port * 10 + 9;
+    } else if (uri_string.startsWith("?")) {
+      let rest = uri_string.slice(1);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          new Some(port),
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_query_with_question_mark(rest, pieces$1);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          new Some(port),
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else if (uri_string.startsWith("/")) {
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          _record.host,
+          new Some(port),
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_path(uri_string, pieces$1);
+    } else if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            _record.host,
+            new Some(port),
+            _record.path,
+            _record.query,
+            _record.fragment
+          );
+        })()
+      );
+    } else {
+      return new Error(void 0);
+    }
+  }
+}
+function parse_port(uri_string, pieces) {
+  if (uri_string.startsWith(":0")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 0);
+  } else if (uri_string.startsWith(":1")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 1);
+  } else if (uri_string.startsWith(":2")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 2);
+  } else if (uri_string.startsWith(":3")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 3);
+  } else if (uri_string.startsWith(":4")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 4);
+  } else if (uri_string.startsWith(":5")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 5);
+  } else if (uri_string.startsWith(":6")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 6);
+  } else if (uri_string.startsWith(":7")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 7);
+  } else if (uri_string.startsWith(":8")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 8);
+  } else if (uri_string.startsWith(":9")) {
+    let rest = uri_string.slice(2);
+    return parse_port_loop(rest, pieces, 9);
+  } else if (uri_string.startsWith(":")) {
+    return new Error(void 0);
+  } else if (uri_string.startsWith("?")) {
+    let rest = uri_string.slice(1);
+    return parse_query_with_question_mark(rest, pieces);
+  } else if (uri_string.startsWith("#")) {
+    let rest = uri_string.slice(1);
+    return parse_fragment(rest, pieces);
+  } else if (uri_string.startsWith("/")) {
+    return parse_path(uri_string, pieces);
+  } else if (uri_string === "") {
+    return new Ok(pieces);
+  } else {
+    return new Error(void 0);
+  }
+}
+function parse_host_outside_of_brackets_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            new Some(original),
+            _record.port,
+            _record.path,
+            _record.query,
+            _record.fragment
+          );
+        })()
+      );
+    } else if (uri_string.startsWith(":")) {
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_port(uri_string, pieces$1);
+    } else if (uri_string.startsWith("/")) {
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_path(uri_string, pieces$1);
+    } else if (uri_string.startsWith("?")) {
+      let rest = uri_string.slice(1);
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_query_with_question_mark(rest, pieces$1);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let rest = $[1];
+      loop$original = original;
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$size = size + 1;
+    }
+  }
+}
+function parse_host_within_brackets_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            new Some(uri_string),
+            _record.port,
+            _record.path,
+            _record.query,
+            _record.fragment
+          );
+        })()
+      );
+    } else if (uri_string.startsWith("]") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_port(rest, pieces);
+    } else if (uri_string.startsWith("]")) {
+      let rest = uri_string.slice(1);
+      let host = string_codeunit_slice(original, 0, size + 1);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_port(rest, pieces$1);
+    } else if (uri_string.startsWith("/") && size === 0) {
+      return parse_path(uri_string, pieces);
+    } else if (uri_string.startsWith("/")) {
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_path(uri_string, pieces$1);
+    } else if (uri_string.startsWith("?") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_query_with_question_mark(rest, pieces);
+    } else if (uri_string.startsWith("?")) {
+      let rest = uri_string.slice(1);
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_query_with_question_mark(rest, pieces$1);
+    } else if (uri_string.startsWith("#") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_fragment(rest, pieces);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let host = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(host),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let char = $[0];
+      let rest = $[1];
+      let $1 = is_valid_host_within_brackets_char(char);
+      if ($1) {
+        loop$original = original;
+        loop$uri_string = rest;
+        loop$pieces = pieces;
+        loop$size = size + 1;
+      } else {
+        return parse_host_outside_of_brackets_loop(
+          original,
+          original,
+          pieces,
+          0
+        );
+      }
+    }
+  }
+}
+function parse_host_within_brackets(uri_string, pieces) {
+  return parse_host_within_brackets_loop(uri_string, uri_string, pieces, 0);
+}
+function parse_host_outside_of_brackets(uri_string, pieces) {
+  return parse_host_outside_of_brackets_loop(uri_string, uri_string, pieces, 0);
+}
+function parse_host(uri_string, pieces) {
+  if (uri_string.startsWith("[")) {
+    return parse_host_within_brackets(uri_string, pieces);
+  } else if (uri_string.startsWith(":")) {
+    let pieces$1 = (() => {
+      let _record = pieces;
+      return new Uri(
+        _record.scheme,
+        _record.userinfo,
+        new Some(""),
+        _record.port,
+        _record.path,
+        _record.query,
+        _record.fragment
+      );
+    })();
+    return parse_port(uri_string, pieces$1);
+  } else if (uri_string === "") {
+    return new Ok(
+      (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(""),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })()
+    );
+  } else {
+    return parse_host_outside_of_brackets(uri_string, pieces);
+  }
+}
+function parse_userinfo_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string.startsWith("@") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_host(rest, pieces);
+    } else if (uri_string.startsWith("@")) {
+      let rest = uri_string.slice(1);
+      let userinfo = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          new Some(userinfo),
+          _record.host,
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_host(rest, pieces$1);
+    } else if (uri_string === "") {
+      return parse_host(original, pieces);
+    } else if (uri_string.startsWith("/")) {
+      return parse_host(original, pieces);
+    } else if (uri_string.startsWith("?")) {
+      return parse_host(original, pieces);
+    } else if (uri_string.startsWith("#")) {
+      return parse_host(original, pieces);
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let rest = $[1];
+      loop$original = original;
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$size = size + 1;
+    }
+  }
+}
+function parse_authority_pieces(string3, pieces) {
+  return parse_userinfo_loop(string3, string3, pieces, 0);
+}
+function parse_authority_with_slashes(uri_string, pieces) {
+  if (uri_string === "//") {
+    return new Ok(
+      (() => {
+        let _record = pieces;
+        return new Uri(
+          _record.scheme,
+          _record.userinfo,
+          new Some(""),
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })()
+    );
+  } else if (uri_string.startsWith("//")) {
+    let rest = uri_string.slice(2);
+    return parse_authority_pieces(rest, pieces);
+  } else {
+    return parse_path(uri_string, pieces);
+  }
+}
+function parse_scheme_loop(loop$original, loop$uri_string, loop$pieces, loop$size) {
+  while (true) {
+    let original = loop$original;
+    let uri_string = loop$uri_string;
+    let pieces = loop$pieces;
+    let size = loop$size;
+    if (uri_string.startsWith("/") && size === 0) {
+      return parse_authority_with_slashes(uri_string, pieces);
+    } else if (uri_string.startsWith("/")) {
+      let scheme = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          new Some(lowercase(scheme)),
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_authority_with_slashes(uri_string, pieces$1);
+    } else if (uri_string.startsWith("?") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_query_with_question_mark(rest, pieces);
+    } else if (uri_string.startsWith("?")) {
+      let rest = uri_string.slice(1);
+      let scheme = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          new Some(lowercase(scheme)),
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_query_with_question_mark(rest, pieces$1);
+    } else if (uri_string.startsWith("#") && size === 0) {
+      let rest = uri_string.slice(1);
+      return parse_fragment(rest, pieces);
+    } else if (uri_string.startsWith("#")) {
+      let rest = uri_string.slice(1);
+      let scheme = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          new Some(lowercase(scheme)),
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_fragment(rest, pieces$1);
+    } else if (uri_string.startsWith(":") && size === 0) {
+      return new Error(void 0);
+    } else if (uri_string.startsWith(":")) {
+      let rest = uri_string.slice(1);
+      let scheme = string_codeunit_slice(original, 0, size);
+      let pieces$1 = (() => {
+        let _record = pieces;
+        return new Uri(
+          new Some(lowercase(scheme)),
+          _record.userinfo,
+          _record.host,
+          _record.port,
+          _record.path,
+          _record.query,
+          _record.fragment
+        );
+      })();
+      return parse_authority_with_slashes(rest, pieces$1);
+    } else if (uri_string === "") {
+      return new Ok(
+        (() => {
+          let _record = pieces;
+          return new Uri(
+            _record.scheme,
+            _record.userinfo,
+            _record.host,
+            _record.port,
+            original,
+            _record.query,
+            _record.fragment
+          );
+        })()
+      );
+    } else {
+      let $ = pop_codeunit(uri_string);
+      let rest = $[1];
+      loop$original = original;
+      loop$uri_string = rest;
+      loop$pieces = pieces;
+      loop$size = size + 1;
+    }
+  }
+}
+function parse(uri_string) {
+  let default_pieces = new Uri(
+    new None(),
+    new None(),
+    new None(),
+    new None(),
+    "",
+    new None(),
+    new None()
+  );
+  return parse_scheme_loop(uri_string, uri_string, default_pieces, 0);
 }
 function remove_dot_segments_loop(loop$input, loop$accumulator) {
   while (true) {
@@ -3695,7 +4135,7 @@ function remove_dot_segments_loop(loop$input, loop$accumulator) {
 function remove_dot_segments(input2) {
   return remove_dot_segments_loop(input2, toList([]));
 }
-function to_string9(uri) {
+function to_string4(uri) {
   let parts = (() => {
     let $ = uri.fragment;
     if ($ instanceof Some) {
@@ -3717,7 +4157,7 @@ function to_string9(uri) {
   let parts$2 = prepend(uri.path, parts$1);
   let parts$3 = (() => {
     let $ = uri.host;
-    let $1 = starts_with2(uri.path, "/");
+    let $1 = starts_with(uri.path, "/");
     if ($ instanceof Some && !$1 && $[0] !== "") {
       let host = $[0];
       return prepend("/", parts$2);
@@ -3730,7 +4170,7 @@ function to_string9(uri) {
     let $1 = uri.port;
     if ($ instanceof Some && $1 instanceof Some) {
       let port = $1[0];
-      return prepend(":", prepend(to_string2(port), parts$3));
+      return prepend(":", prepend(to_string(port), parts$3));
     } else {
       return parts$3;
     }
@@ -3773,13 +4213,13 @@ function drop_last(elements2) {
   return take(elements2, length(elements2) - 1);
 }
 function join_segments(segments) {
-  return join2(prepend("", segments), "/");
+  return join(prepend("", segments), "/");
 }
 function merge2(base, relative) {
   if (base instanceof Uri && base.scheme instanceof Some && base.host instanceof Some) {
     if (relative instanceof Uri && relative.host instanceof Some) {
       let path = (() => {
-        let _pipe = split3(relative.path, "/");
+        let _pipe = split2(relative.path, "/");
         let _pipe$1 = remove_dot_segments(_pipe);
         return join_segments(_pipe$1);
       })();
@@ -3800,13 +4240,13 @@ function merge2(base, relative) {
           return [base.path, or(relative.query, base.query)];
         } else {
           let path_segments$1 = (() => {
-            let $2 = starts_with2(relative.path, "/");
+            let $2 = starts_with(relative.path, "/");
             if ($2) {
-              return split3(relative.path, "/");
+              return split2(relative.path, "/");
             } else {
-              let _pipe = split3(base.path, "/");
+              let _pipe = split2(base.path, "/");
               let _pipe$1 = drop_last(_pipe);
-              return append(_pipe$1, split3(relative.path, "/"));
+              return append(_pipe$1, split2(relative.path, "/"));
             }
           })();
           let path = (() => {
@@ -3865,7 +4305,7 @@ var ws_send = (ws, msg) => {
 };
 var get_page_url = () => document.URL;
 
-// build/dev/javascript/omnimessage_lustre/omnimessage_lustre/internal/transports/websocket.mjs
+// build/dev/javascript/omnimessage_lustre/omnimessage/lustre/internal/transports/websocket.mjs
 var Normal = class extends CustomType {
   constructor(code2, reason) {
     super();
@@ -4040,8 +4480,8 @@ function convert_scheme(scheme) {
 }
 function do_get_websocket_path(path, page_uri2) {
   let path_uri = (() => {
-    let _pipe = parse2(path);
-    return unwrap2(
+    let _pipe = parse(path);
+    return unwrap(
       _pipe,
       new Uri(
         new None(),
@@ -4063,8 +4503,19 @@ function do_get_websocket_path(path, page_uri2) {
           return try$(
             convert_scheme(merged_scheme),
             (ws_scheme) => {
-              let _pipe = merged.withFields({ scheme: new Some(ws_scheme) });
-              let _pipe$1 = to_string9(_pipe);
+              let _pipe = (() => {
+                let _record = merged;
+                return new Uri(
+                  new Some(ws_scheme),
+                  _record.userinfo,
+                  _record.host,
+                  _record.port,
+                  _record.path,
+                  _record.query,
+                  _record.fragment
+                );
+              })();
+              let _pipe$1 = to_string4(_pipe);
               return new Ok(_pipe$1);
             }
           );
@@ -4086,7 +4537,7 @@ function listen(ws, on_open, on_text_message, on_close) {
 }
 function page_uri() {
   let _pipe = get_page_url();
-  return parse2(_pipe);
+  return parse(_pipe);
 }
 function get_websocket_path(path) {
   let _pipe = page_uri();
@@ -4107,7 +4558,7 @@ function init2(path) {
   }
 }
 
-// build/dev/javascript/omnimessage_lustre/omnimessage_lustre/transports.mjs
+// build/dev/javascript/omnimessage_lustre/omnimessage/lustre/transports.mjs
 var TransportUp = class extends CustomType {
 };
 var TransportDown = class extends CustomType {
@@ -4129,7 +4580,7 @@ var InitError = class extends CustomType {
     this.message = message;
   }
 };
-var DecodeError2 = class extends CustomType {
+var DecodeError3 = class extends CustomType {
   constructor(x0) {
     super();
     this[0] = x0;
@@ -4185,7 +4636,7 @@ function websocket(path) {
   }
 }
 
-// build/dev/javascript/omnimessage_lustre/omnimessage_lustre.mjs
+// build/dev/javascript/omnimessage_lustre/omnimessage/lustre.mjs
 var EncoderDecoder = class extends CustomType {
   constructor(encode, decode3) {
     super();
@@ -4220,7 +4671,7 @@ function new_handlers(on_message, on_state, encoder_decoder) {
         let decode_error2 = $[0];
         return on_state(
           new TransportError(
-            new DecodeError2(decode_error2)
+            new DecodeError3(decode_error2)
           )
         );
       }
@@ -4307,7 +4758,7 @@ function component3(init4, update2, view2, on_attribute_change, encoder_decoder,
 }
 
 // build/dev/javascript/decode/decode_ffi.mjs
-function strict_index(data, key2) {
+function strict_index2(data, key2) {
   const int4 = Number.isInteger(key2);
   if (data instanceof Dict || data instanceof WeakMap || data instanceof Map) {
     const token = {};
@@ -4332,9 +4783,9 @@ function strict_index(data, key2) {
   }
   return new Error(int4 ? "Indexable" : "Dict");
 }
-function list2(data, decode3, pushPath, index4, emptyList) {
+function list3(data, decode3, pushPath, index4, emptyList) {
   if (!(data instanceof List || Array.isArray(data))) {
-    let error = new DecodeError("List", classify(data), emptyList);
+    let error = new DecodeError("List", classify_dynamic(data), emptyList);
     return [emptyList, List.fromArray([error])];
   }
   const decoded = [];
@@ -4358,7 +4809,7 @@ var Decoder = class extends CustomType {
     this.function = function$;
   }
 };
-function run(data, decoder) {
+function run2(data, decoder) {
   let $ = decoder.function(data);
   let maybe_invalid_data = $[0];
   let errors = $[1];
@@ -4403,11 +4854,11 @@ function then$2(decoder, next) {
 }
 function decode_error(expected, found) {
   return toList([
-    new DecodeError(expected, classify(found), toList([]))
+    new DecodeError(expected, classify_dynamic(found), toList([]))
   ]);
 }
 function decode_string2(data) {
-  return run_dynamic_function(data, "", string);
+  return run_dynamic_function(data, "", decode_string);
 }
 function decode_int2(data) {
   return run_dynamic_function(data, 0, int);
@@ -4417,12 +4868,12 @@ function failure(zero, expected) {
     return [zero, decode_error(expected, d)];
   });
 }
-var string3 = /* @__PURE__ */ new Decoder(decode_string2);
+var string2 = /* @__PURE__ */ new Decoder(decode_string2);
 var int3 = /* @__PURE__ */ new Decoder(decode_int2);
-function list3(inner) {
+function list4(inner) {
   return new Decoder(
     (data) => {
-      return list2(
+      return list3(
         data,
         inner.function,
         (p2, k) => {
@@ -4437,13 +4888,13 @@ function list3(inner) {
 function push_path2(layer, path) {
   let decoder = any(
     toList([
-      string,
+      decode_string,
       (x) => {
-        return map3(int(x), to_string2);
+        return map2(int(x), to_string);
       }
     ])
   );
-  let path$1 = map2(
+  let path$1 = map(
     path,
     (key2) => {
       let key$1 = identity(key2);
@@ -4452,14 +4903,19 @@ function push_path2(layer, path) {
         let key$2 = $[0];
         return key$2;
       } else {
-        return "<" + classify(key$1) + ">";
+        return "<" + classify_dynamic(key$1) + ">";
       }
     }
   );
-  let errors = map2(
+  let errors = map(
     layer[1],
     (error) => {
-      return error.withFields({ path: append(path$1, error.path) });
+      let _record = error;
+      return new DecodeError(
+        _record.expected,
+        _record.found,
+        append(path$1, error.path)
+      );
     }
   );
   return [layer[0], errors];
@@ -4477,7 +4933,7 @@ function index3(loop$path, loop$position, loop$inner, loop$data, loop$handle_mis
     } else {
       let key2 = path.head;
       let path$1 = path.tail;
-      let $ = strict_index(data, key2);
+      let $ = strict_index2(data, key2);
       if ($.isOk() && $[0] instanceof Some) {
         let data$1 = $[0][0];
         loop$path = path$1;
@@ -4493,7 +4949,7 @@ function index3(loop$path, loop$position, loop$inner, loop$data, loop$handle_mis
         let default$ = $1[0];
         let _pipe = [
           default$,
-          toList([new DecodeError(kind, classify(data), toList([]))])
+          toList([new DecodeError(kind, classify_dynamic(data), toList([]))])
         ];
         return push_path2(_pipe, reverse(position));
       }
@@ -4617,7 +5073,7 @@ function new_chat_msg(content, status) {
   return new ChatMessage(
     (() => {
       let _pipe = guidv4();
-      return lowercase2(_pipe);
+      return lowercase(_pipe);
     })(),
     content,
     status,
@@ -4647,11 +5103,11 @@ function status_decoder() {
 function chat_message_decoder() {
   return field2(
     "id",
-    string3,
+    string2,
     (id2) => {
       return field2(
         "content",
-        string3,
+        string2,
         (content) => {
           return field2(
             "status",
@@ -4682,11 +5138,11 @@ function decode_server_message(str_msg) {
       if (id2 === 0) {
         return field2(
           1,
-          list3(chat_message_decoder()),
+          list4(chat_message_decoder()),
           (chat_msgs) => {
             let chat_msgs$1 = (() => {
               let _pipe2 = chat_msgs;
-              let _pipe$1 = map2(
+              let _pipe$1 = map(
                 _pipe2,
                 (chat_msg) => {
                   return [chat_msg.id, chat_msg];
@@ -4699,7 +5155,7 @@ function decode_server_message(str_msg) {
         );
       } else {
         return failure(
-          new ServerUpsertChatMessages(new$()),
+          new ServerUpsertChatMessages(new_map()),
           "ServerMessage"
         );
       }
@@ -4709,7 +5165,7 @@ function decode_server_message(str_msg) {
   return decode2(
     _pipe,
     (_capture) => {
-      return run(_capture, decoder);
+      return run2(_capture, decoder);
     }
   );
 }
@@ -4733,10 +5189,10 @@ function chat_message_to_json(message) {
         "id",
         (() => {
           let _pipe = message.id;
-          return string2(_pipe);
+          return string(_pipe);
         })()
       ],
-      ["content", string2(message.content)],
+      ["content", string(message.content)],
       ["status", int2(encode_status(message.status))],
       ["sent_at", int2(to_unix(message.sent_at))]
     ])
@@ -4749,13 +5205,13 @@ function encode_client_message(msg) {
       return toList([int2(0), chat_message_to_json(chat_msg)]);
     } else if (msg instanceof UserDeleteChatMessage) {
       let chat_msg_id = msg[0];
-      return toList([int2(1), string2(chat_msg_id)]);
+      return toList([int2(1), string(chat_msg_id)]);
     } else {
       return toList([int2(2), null$()]);
     }
   })();
   let _pipe$1 = preprocessed_array(_pipe);
-  return to_string5(_pipe$1);
+  return to_string2(_pipe$1);
 }
 function status_string(status) {
   if (status instanceof ClientError) {
@@ -4808,7 +5264,7 @@ var TransportState = class extends CustomType {
   }
 };
 function init3(_) {
-  return [new Model2(new$(), ""), none()];
+  return [new Model2(new_map(), ""), none()];
 }
 function chat_message_element(chat_msg) {
   let _pipe = div();
@@ -4857,10 +5313,19 @@ function scroll_to_latest_message() {
 function update(model, msg) {
   if (msg instanceof UserUpdateDraftContent) {
     let content = msg[0];
-    return [model.withFields({ draft_content: content }), none()];
+    return [
+      (() => {
+        let _record = model;
+        return new Model2(_record.chat_msgs, content);
+      })(),
+      none()
+    ];
   } else if (msg instanceof UserSendDraft) {
     return [
-      model.withFields({ draft_content: "" }),
+      (() => {
+        let _record = model;
+        return new Model2(_record.chat_msgs, "");
+      })(),
       from(
         (dispatch) => {
           let _pipe = new_chat_msg(
@@ -4882,7 +5347,10 @@ function update(model, msg) {
       return insert(_pipe, chat_msg.id, chat_msg);
     })();
     return [
-      model.withFields({ chat_msgs }),
+      (() => {
+        let _record = model;
+        return new Model2(chat_msgs, _record.draft_content);
+      })(),
       scroll_to_latest_message()
     ];
   } else if (msg instanceof ClientMessage) {
@@ -4893,7 +5361,13 @@ function update(model, msg) {
       let _pipe = model.chat_msgs;
       return merge(_pipe, server_messages);
     })();
-    return [model.withFields({ chat_msgs }), none()];
+    return [
+      (() => {
+        let _record = model;
+        return new Model2(chat_msgs, _record.draft_content);
+      })(),
+      none()
+    ];
   } else if (msg instanceof TransportState && msg[0] instanceof TransportUp) {
     return [
       model,
@@ -4946,7 +5420,7 @@ function view(model) {
         );
         return keyed2(
           _pipe$4,
-          map2(
+          map(
             sorted_chat_msgs,
             (chat_msg) => {
               return [chat_msg.id, chat_message_element(chat_msg)];
@@ -5005,7 +5479,7 @@ function chat() {
     },
     (encoded_msg) => {
       let _pipe = decode_server_message(encoded_msg);
-      return map3(_pipe, (var0) => {
+      return map2(_pipe, (var0) => {
         return new ServerMessage(var0);
       });
     }
@@ -5014,7 +5488,7 @@ function chat() {
     init3,
     update,
     view,
-    new$(),
+    new_map(),
     encoder_decoder,
     websocket("http://localhost:8000/omni-app-ws"),
     (var0) => {
@@ -5027,13 +5501,13 @@ function chat() {
 function main() {
   let init_model = (() => {
     let _pipe = querySelector("#model");
-    let _pipe$1 = map3(_pipe, innerText);
+    let _pipe$1 = map2(_pipe, innerText);
     let _pipe$2 = then$(
       _pipe$1,
       (text2) => {
         let $2 = (() => {
           let _pipe$22 = text2;
-          let _pipe$32 = trim2(_pipe$22);
+          let _pipe$32 = trim(_pipe$22);
           return is_empty(_pipe$32);
         })();
         if ($2) {
@@ -5046,7 +5520,7 @@ function main() {
     let _pipe$3 = then$(
       _pipe$2,
       (_) => {
-        return new Ok(new Model2(new$(), ""));
+        return new Ok(new Model2(new_map(), ""));
       }
     );
     return from_result(_pipe$3);

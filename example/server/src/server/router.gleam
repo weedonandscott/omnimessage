@@ -15,7 +15,7 @@ import lustre_pipes/attribute
 import lustre_pipes/element.{children, empty, text_content}
 import lustre_pipes/element/html.{html}
 import mist
-import omnimessage_server as omniserver
+import omnimessage/server as omniserver
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
 
@@ -127,7 +127,7 @@ fn wisp_handler(req, ctx) {
     //
     //   case
     //     req_body
-    //     |> omnimessage_server.pipe(encoder_decoder(), handle(ctx, _))
+    //     |> omniserver.pipe(encoder_decoder(), handle(ctx, _))
     //   {
     //     Ok(Some(res_body)) -> wisp.response(200) |> wisp.string_body(res_body)
     //     Ok(None) -> wisp.response(200)

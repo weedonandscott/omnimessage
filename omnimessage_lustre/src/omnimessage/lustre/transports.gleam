@@ -1,4 +1,4 @@
-/// Transports tell an omnimessage_lustre application how to communicate with
+/// Transports tell an omnimessage/lustre application how to communicate with
 /// the server.
 ///
 /// You hand them to `omniclient.application()` or `omniclient.component()`
@@ -19,7 +19,7 @@ import gleam/javascript/promise
 import gleam/option
 import gleam/result
 
-import omnimessage_lustre/internal/transports/websocket
+import omnimessage/lustre/internal/transports/websocket
 
 /// This type represents the state messages sent to your Lustre application via
 /// the wrapper you gave on application creation.
@@ -137,7 +137,7 @@ fn handle_http_response(
   }
 }
 
-@external(javascript, "../omnimessage_lustre.ffi.mjs", "on_online_change")
+@external(javascript, "../../omnimessage_lustre.ffi.mjs", "on_online_change")
 fn on_online_change(callback: fn(Bool) -> Nil) -> Bool
 
 @target(javascript)

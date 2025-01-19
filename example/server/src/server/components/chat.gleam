@@ -1,7 +1,7 @@
 import gleam/dict
 import gleam/result
 import lustre/effect
-import omnimessage_server as omniserver
+import omnimessage/server as omniserver
 import shared.{type ClientMessage, type ServerMessage}
 import wisp
 

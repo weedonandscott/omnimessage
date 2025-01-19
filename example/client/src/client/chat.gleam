@@ -10,8 +10,8 @@ import lustre_pipes/element
 import lustre_pipes/element/html
 import lustre_pipes/event
 import lustre_pipes/server_component
-import omnimessage_lustre as omniclient
-import omnimessage_lustre/transports
+import omnimessage/lustre as omniclient
+import omnimessage/lustre/transports
 import plinth/browser/document
 import plinth/browser/element as plinth_element
 

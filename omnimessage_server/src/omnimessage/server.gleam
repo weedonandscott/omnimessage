@@ -1,5 +1,5 @@
-/// omnimessage_server is the collection of tools allowing you to handle
-/// connections from omnimessage_lustre applications.
+/// omnimessage/server is the collection of tools allowing you to handle
+/// connections from omnimessage/lustre applications.
 ///
 /// The rule of thumb is if it initiates the connection, it's a client. If it
 /// responds to a connection request, it's a server. 
@@ -13,7 +13,7 @@
 /// Currently only the erlang target is supported, but you could easily adapt
 /// the principles to the Node, Deno, or Bun targets. Or even to a runtime
 /// outside Gleam's ecosystem -- as long as you can send and receive encoded
-/// messages, you can communicate with omnimessage_lustre.
+/// messages, you can communicate with omnimessage/lustre.
 ///
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Decoder}
@@ -31,7 +31,7 @@ import lustre/element.{type Element}
 import mist
 import wisp
 
-import omnimessage_server/internal/lustre/runtime.{type Action}
+import omnimessage/server/internal/lustre/runtime.{type Action}
 
 /// Holds decode and encode functions for omnimessage messages. Decode errors
 /// will be called back for you to handle, while Encode errors are interpreted
@@ -117,7 +117,7 @@ pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
 }
 
 /// This creates a version of a Lustre application that can be used in
-/// `omnimessage_server.start_actor` (see below). A view is not necessary, as
+/// `omnimessage/server.start_actor` (see below). A view is not necessary, as
 /// this application will never render anything.
 ///
 pub fn application(init, update, encoder_decoder) {
@@ -245,13 +245,13 @@ pub fn mist_websocket_pipe(
 
 /// A mist websocket handler to automatically responsd to omnimessage messages
 /// via a Lustre server component. The server component can then be used
-/// similarly to one created by an `omnimessage_lustre` and handle the messages
+/// similarly to one created by an `omnimessage/lustre` and handle the messages
 /// via update, dispatch, and effects.
 ///
 /// Return this as a response to the websocket init request.
 ///
 ///   - `req`       The mist request
-///   - `app`       An application created with `omnimessage_server.application`
+///   - `app`       An application created with `omnimessage/server.application`
 ///   - `flags`     Flags to hand to the application's `init`
 ///   - `on_error`  For handling decode errors
 ///
