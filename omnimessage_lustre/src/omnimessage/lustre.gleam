@@ -81,7 +81,7 @@ pub fn component(
   init,
   update,
   view,
-  on_attribute_change,
+  options,
   encoder_decoder,
   transport,
   transport_wrapper,
@@ -89,7 +89,7 @@ pub fn component(
   let #(omniinit, omniupdate) =
     compose(init, update, transport, encoder_decoder, transport_wrapper)
 
-  lustre.component(omniinit, omniupdate, view, on_attribute_change)
+  lustre.component(omniinit, omniupdate, view, options)
 }
 
 fn compose(init, update, transport, encoder_decoder, meta_wrapper) {

@@ -15,8 +15,6 @@
 /// outside Gleam's ecosystem -- as long as you can send and receive encoded
 /// messages, you can communicate with omnimessage/lustre.
 ///
-import gleam/dict.{type Dict}
-import gleam/dynamic.{type Decoder}
 import gleam/erlang/process.{type Subject}
 import gleam/function
 import gleam/http
@@ -24,14 +22,14 @@ import gleam/http/request
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import gleam/result
+import lustre/component
+import lustre/server_component
 
 import lustre
 import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/element
 import mist
 import wisp
-
-import omnimessage/server/internal/lustre/runtime.{type Action}
 
 /// Holds decode and encode functions for omnimessage messages. Decode errors
 /// will be called back for you to handle, while Encode errors are interpreted
@@ -91,27 +89,11 @@ pub fn pipe(
 }
 
 ///
-pub opaque type App(flags, model, msg) {
+pub opaque type App(start_args, model, msg, encoding, decode_error) {
   App(
-    init: fn(flags) -> #(model, Effect(msg)),
+    init: fn(start_args) -> #(model, Effect(msg)),
     update: fn(model, msg) -> #(model, Effect(msg)),
-    view: fn(model) -> Element(msg),
-    // The `dict.mjs` module in the standard library is huge (20+kb!). For folks
-    // that don't ever build components and don't use a dictionary in any of their
-    // code we'd rather not thrust that increase in bundle size on them just to
-    // call `dict.new()`.
-    //
-    // Using `Option` here at least lets us say `None` for the empty case in the
-    // `application` constructor.
-    //
-    on_attribute_change: Option(Dict(String, Decoder(msg))),
-  )
-}
-
-///
-pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
-  ComposedApp(
-    app: App(flags, model, msg),
+    options: Option(List(component.Option(msg))),
     encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
   )
 }
@@ -120,9 +102,21 @@ pub opaque type ComposedApp(flags, model, msg, encoding, decode_error) {
 /// `omnimessage/server.start_actor` (see below). A view is not necessary, as
 /// this application will never render anything.
 ///
-pub fn application(init, update, encoder_decoder) {
-  let view = fn(_) { element.none() }
-  ComposedApp(app: App(init, update, view, option.None), encoder_decoder:)
+pub fn application(
+  init init: fn(start_args) -> #(model, Effect(msg)),
+  update update: fn(model, msg) -> #(model, Effect(msg)),
+  encoder_decoder encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
+) -> App(start_args, model, msg, encoding, decode_error) {
+  App(init: init, update: update, options: None, encoder_decoder:)
+}
+
+pub fn component(
+  init init: fn(start_args) -> #(model, Effect(msg)),
+  update update: fn(model, msg) -> #(model, Effect(msg)),
+  options options: List(component.Option(msg)),
+  encoder_decoder encoder_decoder: EncoderDecoder(msg, encoding, decode_error),
+) -> App(start_args, model, msg, encoding, decode_error) {
+  App(init: init, update: update, options: Some(options), encoder_decoder:)
 }
 
 /// This is a beefed up version of `lustre.start_actor` that allows subscribing
@@ -131,41 +125,23 @@ pub fn application(init, update, encoder_decoder) {
 /// This is what enables using a Lustre server component for communication,
 /// powering `mist_websocket_application()` below.
 ///
-pub fn start_actor(
-  // TODO: should this be `ComposedApp`?
-  app: ComposedApp(flags, model, msg, encoding, decode_error),
-  with flags: flags,
-) -> Result(Subject(Action(msg, lustre.ServerComponent)), lustre.Error) {
-  do_start_actor(app.app, flags)
-}
+pub fn start_server_component(
+  app: App(start_args, model, msg, encoding, decode_error),
+  with_args start_args: start_args,
+  with_listener listener: fn(msg) -> Nil,
+) -> Result(lustre.Runtime(msg), lustre.Error) {
+  let wrapped_update = fn(model, msg) {
+    listener(msg)
+    app.update(model, msg)
+  }
 
-fn do_start_actor(
-  app: App(flags, model, msg),
-  flags: flags,
-) -> Result(Subject(Action(msg, lustre.ServerComponent)), lustre.Error) {
-  let on_attribute_change = option.unwrap(app.on_attribute_change, dict.new())
+  let view = fn(_model) { element.none() }
+  let lustre_app = case app.options {
+    None -> lustre.application(app.init, wrapped_update, view)
+    Some(options) -> lustre.component(app.init, wrapped_update, view, options)
+  }
 
-  app.init(flags)
-  |> runtime.start(app.update, app.view, on_attribute_change)
-  |> result.map_error(lustre.ActorError)
-}
-
-/// This action subscribes to updates in a running application.
-///
-pub fn subscribe(id: String, dispatch: fn(msg) -> Nil) {
-  runtime.UpdateSubscribe(id, dispatch)
-}
-
-/// Dispatch a message to a running application's `update` function.
-///
-pub fn dispatch(message: msg) {
-  runtime.Dispatch(message)
-}
-
-/// Instruct a running application to shut down.
-///
-pub fn shutdown() {
-  runtime.Shutdown
+  lustre.start_server_component(lustre_app, with: start_args)
 }
 
 /// A wisp middleware to automatically handle HTTP POST omnimessage messages.
@@ -201,7 +177,7 @@ pub fn wisp_http_middleware(
   }
 }
 
-/// A mist websocket handler to automatically responsd to omnimessage messages.
+/// A mist websocket handler to automatically respond to omnimessage messages.
 ///
 /// Return this as a response to the websocket init request.
 ///
@@ -243,7 +219,15 @@ pub fn mist_websocket_pipe(
   )
 }
 
-/// A mist websocket handler to automatically responsd to omnimessage messages
+type WebsocketState(msg) {
+  WebsocketState(
+    runtime: lustre.Runtime(msg),
+    omni_self: Subject(msg),
+    lustre_self: Subject(server_component.ClientMessage(msg)),
+  )
+}
+
+/// A mist websocket handler to automatically respond to omnimessage messages
 /// via a Lustre server component. The server component can then be used
 /// similarly to one created by an `omnimessage/lustre` and handle the messages
 /// via update, dispatch, and effects.
@@ -259,39 +243,39 @@ pub fn mist_websocket_pipe(
 ///
 pub fn mist_websocket_application(
   req: request.Request(mist.Connection),
-  app: ComposedApp(flags, model, msg, String, decode_error),
+  app: App(flags, model, msg, String, decode_error),
   flags: flags,
   on_error: fn(decode_error) -> Nil,
 ) {
   mist.websocket(
     request: req,
     on_init: fn(_conn) {
-      let self = process.new_subject()
-      let assert Ok(runtime) = start_actor(app, flags)
+      let omni_self = process.new_subject()
+      let lustre_self = process.new_subject()
+      let assert Ok(runtime) =
+        start_server_component(app, flags, process.send(omni_self, _))
 
-      process.send(
-        runtime,
-        subscribe("OMNIMESSAGE_AUTO_MIST", process.send(self, _)),
-      )
+      let state = WebsocketState(runtime:, omni_self:, lustre_self:)
 
       #(
-        runtime,
+        state,
         option.Some(
           process.new_selector()
-          |> process.selecting(self, function.identity),
+          |> process.selecting(omni_self, function.identity),
         ),
       )
     },
-    handler: fn(runtime, conn, msg) {
+    handler: fn(state: WebsocketState(msg), conn, msg) {
       case msg {
         mist.Text(msg) -> {
           case app.encoder_decoder.decode(msg) {
-            Ok(decoded_msg) -> process.send(runtime, dispatch(decoded_msg))
+            Ok(decoded_msg) ->
+              lustre.send(state.runtime, lustre.dispatch(decoded_msg))
             Error(decode_error) -> on_error(decode_error)
           }
-          actor.continue(runtime)
+          actor.continue(state)
         }
-        mist.Binary(_) -> actor.continue(runtime)
+        mist.Binary(_) -> actor.continue(state)
         mist.Custom(msg) -> {
           // TODO: do we really want to crash this?
           let assert Ok(_) = case app.encoder_decoder.encode(msg) {
@@ -300,11 +284,19 @@ pub fn mist_websocket_application(
             Error(_) -> Ok(Nil)
           }
 
-          actor.continue(runtime)
+          actor.continue(state)
         }
-        mist.Closed | mist.Shutdown -> actor.Stop(process.Normal)
+        mist.Closed | mist.Shutdown -> {
+          server_component.deregister_subject(state.lustre_self)
+          |> lustre.send(to: state.runtime)
+
+          actor.Stop(process.Normal)
+        }
       }
     },
-    on_close: fn(runtime) { process.send(runtime, shutdown()) },
+    on_close: fn(state) {
+      server_component.deregister_subject(state.lustre_self)
+      |> lustre.send(to: state.runtime)
+    },
   )
 }

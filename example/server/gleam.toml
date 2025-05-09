@@ -15,13 +15,13 @@ gleam = ">= 1.5.1"
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-lustre = ">= 4.6.0 and < 5.0.0"
+lustre = ">= 5.0.0 and < 6.0.0"
 wisp = ">= 1.2.0 and < 2.0.0"
 mist = ">= 4.0.0 and < 5.0.0"
 gleam_erlang = ">= 0.28.0 and < 1.0.0"
-gleam_http = ">= 3.7.0 and < 4.0.0"
+gleam_http = ">= 3.0.0 and < 5.0.0"
 filepath = ">= 1.0.0 and < 2.0.0"
-lustre_pipes = ">= 0.0.1 and < 1.0.0"
+lustre_pipes = ">= 0.3.0 and < 1.0.0"
 omnimessage_server = { path = "../../omnimessage_server" }
 shared = { path = "../shared" }
 gleam_otp = ">= 0.13.0 and < 1.0.0"
