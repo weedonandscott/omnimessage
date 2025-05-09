@@ -9,11 +9,9 @@ internal_modules = ["omnimessage/server/internal", "omnimessage/server/internal/
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-gleam_json = ">= 2.0.0 and < 3.0.0"
 gleam_otp = ">= 0.14.1 and < 1.0.0"
-gleam_http = ">= 3.7.0 and < 4.0.0"
-gleam_httpc = ">= 4.0.0 and < 5.0.0"
-lustre = ">= 4.6.1 and < 5.0.0"
+gleam_http = ">= 4.0.0 and < 5.0.0"
+lustre = ">= 5.0.0 and < 6.0.0"
 mist = ">= 4.0.0 and < 5.0.0"
 wisp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 0.30.0 and < 1.0.0"

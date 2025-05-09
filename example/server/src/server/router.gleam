@@ -7,17 +7,20 @@ import gleam/json
 import gleam/option.{Some}
 import gleam/otp/actor
 import gleam/result
+import gleam/string_tree
+
 import lustre
 import lustre/server_component
-
-import filepath
 import lustre_pipes/attribute
 import lustre_pipes/element.{children, empty, text_content}
-import lustre_pipes/element/html.{html}
+import lustre_pipes/element/html
+
+import filepath
 import mist
-import omnimessage/server as omniserver
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
+
+import omnimessage/server as omniserver
 
 import server/components/chat
 import server/components/sessions_count
@@ -138,8 +141,12 @@ fn wisp_handler(req, ctx) {
   }
 }
 
-type SessionCountRuntime =
-  process.Subject(lustre.Action(sessions_count.Msg, lustre.ServerComponent))
+type SessionCountState {
+  SessionCountState(
+    runtime: lustre.Runtime(sessions_count.Msg),
+    self: process.Subject(server_component.ClientMessage(sessions_count.Msg)),
+  )
+}
 
 // Wisp doesn't support websockets yet
 pub fn mist_handler(
@@ -165,8 +172,8 @@ pub fn mist_handler(
     // This is an example of manual websocket implementation, in case custom
     // functionality is needed, such as custom push logic. It is commented out
     // becuase the rudimentary PubSub implemented in `context` does not support
-    // sending mist websocket message, thefore the added listener will cause a
-    // panic. I leave this code here for your reference, in case you want to
+    // sending mist websocket messages, therefore the added listener will cause
+    // a panic. I leave this code here for your reference, in case you want to
     // implement similar (yet working) logic.
     //
     // ["omni-manual-ws"], http.Get ->
@@ -220,27 +227,22 @@ pub fn mist_handler(
       mist.websocket(
         req,
         on_init: fn(_) {
-          let self = process.new_subject()
           let count_app = sessions_count.app()
-          let assert Ok(count_runtime) =
-            lustre.start_actor(count_app, context.add_session_listener(
-              ctx,
-              wisp.random_string(5),
-              _,
-            ))
-
-          process.send(
-            count_runtime,
-            server_component.subscribe("sessions_count_ws", process.send(
-              self,
-              _,
-            )),
-          )
+          let assert Ok(runtime) =
+            lustre.start_server_component(
+              count_app,
+              context.add_session_listener(ctx, wisp.random_string(5), _),
+            )
 
           context.increment_session_count(ctx)
 
+          let self = process.new_subject()
+
+          server_component.register_subject(self)
+          |> lustre.send(to: runtime)
+
           #(
-            count_runtime,
+            SessionCountState(runtime:, self:),
             Some(process.selecting(
               process.new_selector(),
               self,
@@ -248,35 +250,44 @@ pub fn mist_handler(
             )),
           )
         },
-        handler: fn(count_runtime: SessionCountRuntime, conn, msg) {
+        handler: fn(state: SessionCountState, conn, msg) {
           case msg {
             mist.Text(json) -> {
-              let action = json.decode(json, server_component.decode_action)
+              let action =
+                json.parse(json, server_component.runtime_message_decoder())
 
               case action {
-                Ok(action) -> process.send(count_runtime, action)
+                Ok(action) -> lustre.send(state.runtime, action)
                 Error(_) -> Nil
               }
 
-              actor.continue(count_runtime)
+              actor.continue(state)
             }
             mist.Custom(patch) -> {
               let assert Ok(_) =
                 patch
-                |> server_component.encode_patch
+                |> server_component.client_message_to_json
                 |> json.to_string
                 |> mist.send_text_frame(conn, _)
 
-              actor.continue(count_runtime)
+              actor.continue(state)
             }
-            mist.Closed | mist.Shutdown -> actor.Stop(process.Normal)
-            mist.Binary(_) -> actor.continue(count_runtime)
+            mist.Closed | mist.Shutdown -> {
+              server_component.deregister_subject(state.self)
+              |> lustre.send(to: state.runtime)
+
+              actor.Stop(process.Normal)
+            }
+            mist.Binary(_) -> actor.continue(state)
           }
         },
-        on_close: fn(count_runtime: SessionCountRuntime) {
+        on_close: fn(state: SessionCountState) {
           context.decrement_session_count(ctx)
 
-          process.send(count_runtime, lustre.shutdown())
+          server_component.deregister_subject(state.self)
+          |> lustre.send(to: state.runtime)
+
+          lustre.send(state.runtime, lustre.shutdown())
         },
       )
 
@@ -293,44 +304,41 @@ fn page_scaffold(
   |> attribute.class("h-full w-full overflow-hidden")
   |> children([
     html.head()
-    |> children([
-      html.meta()
-        |> attribute.attribute("charset", "UTF-8")
-        |> empty(),
-      html.meta()
-        |> attribute.name("viewport")
-        |> attribute.attribute(
-          "content",
-          "width=device-width, initial-scale=1.0",
-        )
-        |> empty(),
-      html.title()
-        |> text_content("Lustre OmniMessage"),
-      html.link()
-        |> attribute.href("/priv/static/client.css")
-        |> attribute.rel("stylesheet")
-        |> empty(),
-      html.script()
-        |> attribute.src("/priv/static/client.mjs")
-        |> attribute.type_("module")
-        |> empty(),
-      html.script()
-        |> attribute.src("/priv/static/lustre-server-component.mjs")
-        |> attribute.type_("module")
-        |> empty(),
-      html.script()
-        |> attribute.id("model")
-        |> attribute.type_("module")
-        |> text_content(init_json),
-      html.body()
+      |> children([
+        html.meta()
+          |> attribute.attribute("charset", "UTF-8")
+          |> empty(),
+        html.meta()
+          |> attribute.name("viewport")
+          |> attribute.attribute(
+            "content",
+            "width=device-width, initial-scale=1.0",
+          )
+          |> empty(),
+        html.title()
+          |> text_content("OmniMessage"),
+        html.link()
+          |> attribute.href("/priv/static/client.css")
+          |> attribute.rel("stylesheet")
+          |> empty(),
+        html.script()
+          |> attribute.src("/priv/static/client.mjs")
+          |> attribute.type_("module")
+          |> empty(),
+        server_component.script(),
+        html.script()
+          |> attribute.id("model")
+          |> attribute.type_("module")
+          |> text_content(init_json),
+      ]),
+    html.body()
+      |> attribute.class("h-full w-full")
+      |> children([
+        html.div()
+        |> attribute.id("app")
         |> attribute.class("h-full w-full")
-        |> children([
-          html.div()
-          |> attribute.id("app")
-          |> attribute.class("h-full w-full")
-          |> children([content]),
-        ]),
-    ]),
+        |> children([content]),
+      ]),
   ])
 }
 
@@ -342,6 +350,8 @@ fn home() -> Response {
     html.div()
     |> empty()
     |> page_scaffold("")
-    |> element.to_document_string_builder(),
+    |> element.to_document_string_tree()
+    // https://github.com/lustre-labs/lustre/issues/315
+    |> string_tree.replace("\\n", ""),
   )
 }

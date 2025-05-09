@@ -1,4 +1,3 @@
-import gleam/dict
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import lustre
@@ -12,7 +11,7 @@ pub type Model {
 
 pub fn app() {
   // An omnimessage_server app has no view
-  lustre.component(init, update, view, dict.new())
+  lustre.application(init, update, view)
 }
 
 fn init(count_listener: fn(fn(Int) -> Nil) -> Nil) {

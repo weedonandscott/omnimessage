@@ -15,9 +15,7 @@ import omnimessage/lustre/transports
 import plinth/browser/document
 import plinth/browser/element as plinth_element
 
-import shared.{
-  type ChatMessage, type ClientMessage, type ServerMessage, ChatMessage,
-}
+import shared.{type ChatMessage, type ClientMessage, type ServerMessage}
 
 // MAIN ------------------------------------------------------------------------
 
@@ -43,7 +41,7 @@ pub fn chat() {
     init,
     update,
     view,
-    dict.new(),
+    [],
     encoder_decoder,
     transports.websocket("http://localhost:8000/omni-app-ws"),
     // transports.websocket("http://localhost:8000/omni-pipe-ws"),
@@ -178,7 +176,7 @@ fn view(model: Model) -> element.Element(Msg) {
     html.div()
       |> attribute.class("flex justify-center")
       |> element.children([
-        server_component.component()
+        server_component.element()
         |> server_component.route("/sessions-count")
         |> element.empty(),
       ]),
@@ -193,7 +191,7 @@ fn view(model: Model) -> element.Element(Msg) {
       }),
     html.form()
       |> attribute.class("w-80 flex gap-x-4")
-      |> event.on_submit(UserSendDraft)
+      |> event.on_submit(fn(_) { UserSendDraft })
       |> element.children([
         html.input()
           |> event.on_input(UserUpdateDraftContent)

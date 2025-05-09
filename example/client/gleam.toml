@@ -6,13 +6,12 @@ gleam = ">= 1.5.1"
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-lustre = ">= 4.6.1 and < 5.0.0"
+lustre = ">= 5.0.0 and < 6.0.0"
 modem = ">= 2.0.1 and < 3.0.0"
 gleam_json = ">= 2.0.0 and < 3.0.0"
-plinth = ">= 0.5.1 and < 1.0.0"
-gleam_javascript = ">= 0.13.0 and < 1.0.0"
+plinth = ">= 0.5.9 and < 1.0.0"
 birl = ">= 1.7.1 and < 2.0.0"
-lustre_pipes = ">= 0.0.1 and < 1.0.0"
+lustre_pipes = ">= 0.3.0 and < 1.0.0"
 omnimessage_lustre = { path = "../../omnimessage_lustre" }
 shared = { path = "../shared" }
 decode = ">= 1.1.0 and < 2.0.0"
